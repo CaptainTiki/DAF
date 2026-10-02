@@ -30,6 +30,8 @@ extends Resource
 ## How long a job that just failed is left alone before anyone retries it.
 @export var job_retry_ticks: int = 100
 @export var dwarf_names: PackedStringArray = []
+## How often an idle dwarf checks whether they can still walk home.
+@export var trapped_check_ticks: int = 100
 ## Each dwarf gets a fixed pause of 0..this many ticks before acting on a new
 ## decision, so a group never moves as one.
 @export var think_ticks_max: int = 6

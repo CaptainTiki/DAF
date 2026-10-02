@@ -29,10 +29,12 @@ const FACING_CAMERA := Basis(Vector3(0, 0, 1), Vector3(0, 1, 0), Vector3(-1, 0, 
 @onready var _carried_ball: MeshInstance3D = $Rig/CarriedBall
 @onready var _carried_box: MeshInstance3D = $Rig/CarriedBox
 @onready var _progress: MeshInstance3D = $Progress
+@onready var _speech: Label3D = $Speech
 
 var _dwarf: Dwarf
 var _carried_material := StandardMaterial3D.new()
 var _carried_type: int = -1
+var _shown_speech: String = ""
 ## The activity the dwarf was last posed for while standing still, or -1.
 var _resting_as: int = -1
 ## Sideways standing position within the tile, in tiles.
@@ -55,6 +57,10 @@ func bind(dwarf: Dwarf) -> void:
 
 
 func refresh(sim: Simulation, alpha: float) -> void:
+	if _dwarf.speech != _shown_speech:
+		_shown_speech = _dwarf.speech
+		_speech.text = _shown_speech
+		_speech.visible = not _shown_speech.is_empty()
 	var moving: bool = _dwarf.move_ticks_left > 0
 	var working: bool = _dwarf.activity == Dwarf.Activity.WORK
 	var sitting: bool = _dwarf.activity == Dwarf.Activity.SIT

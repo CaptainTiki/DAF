@@ -43,6 +43,11 @@ Judgment calls made while building, newest milestone first. Each entry says what
 - Stairs are drawn as half planks from each stair tile towards each stair it touches, so runs that meet at a turn join up.
 - Walls and doors are not built yet. A wall would turn open space back into solid; a door has nothing to do until there are threats.
 
+### Dwarves speak
+- A dwarf has a `speech` string, drawn in a bubble over their head. For now the only thing said is "!".
+- An idle dwarf checks every 5 seconds whether they can still walk back to where the dwarves arrived. One who can't is trapped: they show "!" and post "I'm trapped! Build stairs to me." in the requests log. It clears once a way out exists.
+- The check only runs when idle, so a dwarf who is cut off but still has work in reach keeps working and says nothing until it runs out.
+
 ### Joining rooms
 - A room dragged so that it touches or overlaps a room of the same type becomes one room with it. A new room can bridge two others.
 - The layout is recalculated for the new width. A slot that is still in the layout keeps what it has: built furniture, a bench and its output pile, materials already delivered.

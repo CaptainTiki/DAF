@@ -33,6 +33,13 @@ var work_tile: Vector2i
 var work_progress: int = 0
 var work_total: int = 1
 
+## What the dwarf is saying right now, shown in a bubble over their head.
+## Empty when they have nothing to say. For now the only thing said is "!".
+var speech: String = ""
+## Cut off from where the dwarves arrived, with no way to walk back.
+var trapped: bool = false
+var trapped_check_tick: int = 0
+
 ## The seat this dwarf is sitting on or walking to, when taking a break.
 var seat: RoomSlot
 var sit_ticks_left: int = 0

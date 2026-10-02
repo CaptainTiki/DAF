@@ -100,11 +100,30 @@ func _tick_idle(sim: Simulation, dwarf: Dwarf) -> void:
 	dwarf.idle_ticks_left = config.idle_retry_ticks + sim.rng.randi_range(0, config.idle_retry_ticks / 2)
 	if _try_take_job(sim, dwarf):
 		return
+	_check_trapped(sim, dwarf)
 	# Idle dwarves don't stand inside each other: all but one move along.
 	if _shares_tile_with_idler(sim, dwarf) or sim.rng.randf() < config.wander_chance:
 		if sim.rng.randf() < config.sit_chance and _try_sit(sim, dwarf):
 			return
 		_wander(sim, dwarf)
+
+
+## Every so often an idle dwarf checks they can still walk back to where the
+## dwarves arrived. One who can't says so, with a "!" and a line in the
+## requests log, until a way out exists again.
+func _check_trapped(sim: Simulation, dwarf: Dwarf) -> void:
+	if sim.tick_count < dwarf.trapped_check_tick:
+		return
+	dwarf.trapped_check_tick = sim.tick_count + sim.config.trapped_check_ticks
+	var home: Vector2i = sim.spawn_point()
+	var trapped: bool = false
+	# If the arrival spot itself has been dug away there is no home to measure against.
+	if Pathfinder.can_occupy(sim.grid, home.x, home.y):
+		trapped = not Pathfinder.flood(sim.grid, dwarf.pos).is_reachable(home.x, home.y)
+	dwarf.trapped = trapped
+	dwarf.speech = "!" if trapped else ""
+	if trapped:
+		sim.requests.post(StringName("trapped_%d" % dwarf.id), dwarf.display_name, "I'm trapped! Build stairs to me.", sim.tick_count, sim.config.request_refresh_ticks)
 
 
 func _wander(sim: Simulation, dwarf: Dwarf) -> void:
@@ -295,6 +314,9 @@ func _is_held_for_another(sim: Simulation, dwarf: Dwarf, station: Station) -> bo
 
 func _start_job(sim: Simulation, dwarf: Dwarf, job: Job, path: Array[Vector2i]) -> void:
 	_leave_seat(dwarf)
+	# Check again as soon as this job is done, so the "!" clears promptly once
+	# there is a way out, and comes back if there still isn't.
+	dwarf.trapped_check_tick = 0
 	sim.board.claim(job, dwarf.id)
 	dwarf.job = job
 	dwarf.path = path

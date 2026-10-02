@@ -274,3 +274,28 @@ func test_idle_dwarves_do_not_stand_on_one_tile() -> void:
 	other.from_pos = other.pos
 	SimFactory.run(_sim, 200)
 	assert_ne(_dwarf.pos, other.pos)
+
+# --- Trapped dwarves ---
+
+func test_dwarf_in_a_pit_says_so_and_is_quiet_again_once_there_is_a_way_out() -> void:
+	# A sealed pocket below the room: no way up.
+	SimFactory.carve(_sim, Rect2i(16, 8, 3, 3))
+	SimFactory.place_dwarf(_dwarf, Vector2i(17, 10))
+	SimFactory.run(_sim, 150)
+	assert_true(_dwarf.trapped)
+	assert_eq(_dwarf.speech, "!")
+	assert_eq(_sim.requests.entries.size(), 1)
+	assert_string_contains(_sim.requests.entries[0].message, "trapped")
+	assert_eq(_sim.requests.entries[0].dwarf_name, _dwarf.display_name)
+
+	_build_flight()
+	SimFactory.run(_sim, 150)
+	assert_false(_dwarf.trapped)
+	assert_eq(_dwarf.speech, "")
+
+
+func test_dwarf_at_home_is_not_trapped() -> void:
+	SimFactory.run(_sim, 300)
+	assert_false(_dwarf.trapped)
+	assert_eq(_dwarf.speech, "")
+	assert_eq(_sim.requests.entries.size(), 0)
