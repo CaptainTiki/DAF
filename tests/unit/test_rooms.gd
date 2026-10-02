@@ -71,8 +71,84 @@ func test_room_cannot_go_on_rock_sky_or_another_room() -> void:
 	assert_false(_sim.can_place_room(_hall, Rect2i(8, 9, 5, 1)), "solid rock")
 	assert_false(_sim.can_place_room(_hall, Rect2i(8, 2, 5, 1)), "open sky")
 	_sim.place_room(_hall, Rect2i(8, 6, 5, 1))
-	assert_false(_sim.can_place_room(_hall, Rect2i(11, 6, 5, 1)), "overlaps")
-	assert_true(_sim.can_place_room(_hall, Rect2i(13, 6, 5, 1)), "next to it is fine")
+	assert_false(_sim.can_place_room(_carpentry, Rect2i(11, 6, 5, 1)), "overlaps a room of another type")
+	assert_true(_sim.can_place_room(_carpentry, Rect2i(13, 6, 5, 1)), "next to it is fine")
+
+
+# --- Joining rooms of the same type ---
+
+func test_touching_halls_become_one_hall() -> void:
+	_sim.place_room(_hall, Rect2i(8, 6, 5, 1))
+	var joined: Room = _sim.place_room(_hall, Rect2i(13, 6, 5, 1))
+	assert_eq(_sim.rooms.rooms.size(), 1)
+	assert_eq(joined.rect, Rect2i(8, 4, 10, 3))
+	assert_eq(_slots_of(joined, SimFactory.CHAIR).size(), 8, "laid out as one 10-wide hall")
+	assert_eq(_sim.logistics.open_count_of(SimFactory.CHAIR), 8)
+	assert_eq(_sim.rooms.room_at(Vector2i(9, 5)), joined)
+	assert_eq(_sim.rooms.room_at(Vector2i(16, 5)), joined)
+
+
+func test_drawing_over_a_hall_extends_it() -> void:
+	_sim.place_room(_hall, Rect2i(8, 6, 5, 1))
+	var joined: Room = _sim.place_room(_hall, Rect2i(10, 6, 8, 1))
+	assert_eq(_sim.rooms.rooms.size(), 1)
+	assert_eq(joined.rect, Rect2i(8, 4, 10, 3))
+
+
+func test_halls_with_a_gap_between_stay_separate() -> void:
+	_sim.place_room(_hall, Rect2i(3, 6, 4, 1))
+	_sim.place_room(_hall, Rect2i(8, 6, 4, 1))
+	assert_eq(_sim.rooms.rooms.size(), 2)
+
+
+func test_a_new_hall_can_bridge_two_others() -> void:
+	_sim.place_room(_hall, Rect2i(3, 6, 4, 1))
+	_sim.place_room(_hall, Rect2i(10, 6, 4, 1))
+	var joined: Room = _sim.place_room(_hall, Rect2i(7, 6, 3, 1))
+	assert_eq(_sim.rooms.rooms.size(), 1)
+	assert_eq(joined.rect, Rect2i(3, 4, 11, 3))
+
+
+func test_furniture_stays_in_place_when_a_hall_is_extended() -> void:
+	var hall: Room = _sim.place_room(_hall, Rect2i(8, 6, 5, 1))
+	var chair: RoomSlot = _slots_of(hall, SimFactory.CHAIR)[1]
+	_sim.complete_site(chair.site)
+	var joined: Room = _sim.place_room(_hall, Rect2i(13, 6, 5, 1))
+	assert_true(chair.built, "still standing")
+	assert_eq(chair.room, joined)
+	assert_true(joined.slots.has(chair))
+	assert_eq(_sim.items.size(), 0, "nothing was dropped")
+	assert_eq(_built_count(joined), 1)
+	assert_eq(_sim.logistics.open_count_of(SimFactory.CHAIR), 7, "only the missing ones are asked for")
+	assert_eq(_sim.sites.size(), 15, "7 chairs and 8 tables still to come")
+
+
+func test_extending_a_hall_to_the_left_keeps_its_furniture() -> void:
+	var hall: Room = _sim.place_room(_hall, Rect2i(8, 6, 5, 1))
+	var chair: RoomSlot = _slots_of(hall, SimFactory.CHAIR)[0]
+	_sim.complete_site(chair.site)
+	var joined: Room = _sim.place_room(_hall, Rect2i(3, 6, 5, 1))
+	assert_eq(joined.rect, Rect2i(3, 4, 10, 3))
+	assert_true(chair.built)
+	assert_eq(chair.tile, Vector2i(9, 6))
+	assert_eq(_slots_of(joined, SimFactory.CHAIR).size(), 8)
+
+
+func test_extending_a_workshop_keeps_its_bench_and_adds_another() -> void:
+	var workshop: Room = _sim.place_room(_carpentry, Rect2i(6, 6, 4, 1))
+	_sim.complete_site(workshop.slots[0].site)
+	var station: Station = _sim.rooms.stations[0]
+	_sim.storage.put(station.output, SimFactory.CHAIR)
+	# Extended to the left by a width that doesn't line up with the bench spacing.
+	var joined: Room = _sim.place_room(_carpentry, Rect2i(1, 6, 5, 1))
+	assert_eq(joined.rect, Rect2i(1, 4, 9, 3))
+	assert_eq(_sim.rooms.stations.size(), 1)
+	assert_eq(_sim.rooms.stations[0], station, "the same bench")
+	assert_eq(station.tile, Vector2i(7, 6), "where it was")
+	assert_eq(station.output.count_of(SimFactory.CHAIR), 1, "with its output pile")
+	assert_eq(_sim.items.size(), 0)
+	assert_eq(joined.slots.size(), 4, "and a second bench in the new space")
+	assert_eq(joined.slots[0].tile, Vector2i(2, 6), "lined up with the first, leaving the odd tile at the end")
 
 
 func test_rooms_and_stockpiles_keep_apart() -> void:

@@ -31,6 +31,12 @@ Judgment calls made while building, newest milestone first. Each entry says what
 - Rooms can't overlap each other or stockpile tiles, and can't go on the surface.
 - Right-drag with the Room tool removes a room. Its furniture, bench materials and stored goods drop to the floor.
 
+### Joining rooms
+- A room dragged so that it touches or overlaps a room of the same type becomes one room with it. A new room can bridge two others.
+- The layout is recalculated for the new width. A slot that is still in the layout keeps what it has: built furniture, a bench and its output pile, materials already delivered.
+- The layout stays lined up with the leftmost room that was joined, so benches never move when a workshop is extended. Extending by an odd width leaves spare tiles at the end.
+- Rooms of different types never join, and still can't overlap.
+
 ### Making things
 - Nobody queues orders. Every 10 ticks, for each recipe: items being asked for, minus items on hand, minus items already being made, becomes pending orders. So exactly what is wanted gets made.
 - A bench takes one order, asks for its inputs, and offers a craft job once they are in and its output pile has room.
@@ -42,6 +48,12 @@ Judgment calls made while building, newest milestone first. Each entry says what
 - 8 sky rows (was 3), so the surface has room for trees. The grid is 160 x 129.
 - Surface trees and farm mushrooms are the same thing (`PlantDef`): they grow, offer a harvest job when full grown, drop items and regrow. A tree gives 3 wood every 8 minutes; a mushroom gives 1 wood every 2 minutes.
 - Trees are always cut when full grown. There is no chop tool.
+- Each plant rolls its own growth speed when planted, up to 10% faster or slower (`growth_variation` on the plant type). The roll is kept for the plant's life, so some plots are always the quick ones.
+- A full-grown plant shows extra foliage sticking out of its square outline, so ripe ones can be told from nearly-ripe ones.
+
+### HUD
+- Window modes are four icon buttons stacked down the right edge. Beside them is a second column: normal, double and triple speed, the room colour overlay, and planned (unbuilt) furniture.
+- Speeds x4 and x16 stay in the debug panel.
 
 ### Sitting
 - An idle dwarf about to wander may sit on a free chair instead, facing the camera, behind the table. They still check for work and get up for it.

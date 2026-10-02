@@ -11,11 +11,15 @@ var plants: Array[Plant] = []
 var version: int = 0
 
 
-func add(def: PlantDef, tile: Vector2i, growth: int) -> Plant:
+## Plants something. `growth` is the head start in ticks; `speed` is this
+## plant's own growth speed (see Simulation.roll_growth_speed).
+func add(def: PlantDef, tile: Vector2i, growth: int, speed: float = 1.0) -> Plant:
 	var plant := Plant.new()
 	plant.def = def
 	plant.tile = tile
-	plant.growth = mini(growth, def.grow_ticks - 1)
+	plant.speed = speed
+	plant.grow_ticks = maxi(roundi(def.grow_ticks / speed), 1)
+	plant.growth = clampi(growth, 0, plant.grow_ticks - 1)
 	plants.append(plant)
 	version += 1
 	return plant
@@ -54,4 +58,4 @@ func harvest(plant: Plant, board: JobBoard) -> void:
 
 func _step(plant: Plant) -> int:
 	@warning_ignore("integer_division")
-	return plant.growth * GROWTH_STEPS / maxi(plant.def.grow_ticks, 1)
+	return plant.growth * GROWTH_STEPS / plant.grow_ticks

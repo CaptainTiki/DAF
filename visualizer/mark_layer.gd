@@ -10,8 +10,21 @@ const STOCKPILE_COLOR := Color(0.3, 0.65, 1.0, 0.3)
 const ROOM_ALPHA: float = 0.2
 const HIDDEN := Transform3D(Basis(Vector3.ZERO, Vector3.ZERO, Vector3.ZERO), Vector3.ZERO)
 
+## Whether rooms are tinted with their colour.
+var show_rooms: bool = true: set = set_show_rooms
+
 var _sim: Simulation
 var _grid: TileGrid
+
+
+func set_show_rooms(value: bool) -> void:
+	if show_rooms == value:
+		return
+	show_rooms = value
+	if _sim == null:
+		return
+	for room: Room in _sim.rooms.rooms:
+		refresh_rect(room.rect)
 
 
 func bind(sim: Simulation) -> void:
@@ -42,7 +55,7 @@ func refresh_tile(x: int, y: int) -> void:
 		lane = ViewSpace.LANE_OVERLAY
 	elif _grid.is_stockpile(x, y):
 		color = STOCKPILE_COLOR
-	elif _grid.has_flag(x, y, TileGrid.FLAG_ROOM):
+	elif show_rooms and _grid.has_flag(x, y, TileGrid.FLAG_ROOM):
 		var room: Room = _sim.rooms.room_at(Vector2i(x, y))
 		color = Color(room.def.color, ROOM_ALPHA) if room != null else Color(1, 1, 1, ROOM_ALPHA)
 	else:

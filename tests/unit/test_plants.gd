@@ -42,6 +42,28 @@ func test_harvest_drops_the_yield_and_the_plant_regrows() -> void:
 	assert_eq(_sim.items.size(), 4, "and harvested again once regrown")
 
 
+func test_each_plant_grows_at_its_own_speed() -> void:
+	var fast: Plant = _sim.plants.add(_shrub, Vector2i(11, 6), 0, 1.1)
+	var slow: Plant = _sim.plants.add(_shrub, Vector2i(13, 6), 0, 0.9)
+	assert_eq(fast.grow_ticks, 45)
+	assert_eq(slow.grow_ticks, 56)
+	_dwarf.idle_ticks_left = 100000
+	SimFactory.run(_sim, 50)
+	assert_true(fast.is_grown())
+	assert_false(slow.is_grown())
+
+
+func test_rolled_growth_speed_stays_within_ten_percent() -> void:
+	var seen_fast: bool = false
+	var seen_slow: bool = false
+	for i in 200:
+		var speed: float = _sim.roll_growth_speed(_shrub)
+		assert_between(speed, 0.9, 1.1)
+		seen_fast = seen_fast or speed > 1.03
+		seen_slow = seen_slow or speed < 0.97
+	assert_true(seen_fast and seen_slow, "some quick, some slow")
+
+
 func test_farm_room_grows_plants_and_loses_them_when_removed() -> void:
 	var plot := SlotDef.new()
 	plot.kind = SlotDef.Kind.PLANT

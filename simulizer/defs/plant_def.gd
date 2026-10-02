@@ -7,6 +7,9 @@ extends Resource
 @export var display_name: String
 ## Ticks from bare to ready for harvest.
 @export var grow_ticks: int = 2400
+## Each plant grows this much faster or slower than grow_ticks, rolled when it
+## is planted (0.1 = up to 10% either way).
+@export_range(0.0, 0.5) var growth_variation: float = 0.1
 @export var harvest_ticks: int = 80
 @export var yield_item: ItemDef
 @export var yield_count: int = 1

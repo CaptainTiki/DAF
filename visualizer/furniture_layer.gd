@@ -23,6 +23,11 @@ func bind(sim: Simulation) -> void:
 	sim.rooms.changed.connect(func() -> void: _dirty = true)
 
 
+## Shows or hides what is planned but not built yet.
+func set_planned_visible(enabled: bool) -> void:
+	_ghost.visible = enabled
+
+
 func refresh() -> void:
 	if not _dirty and _sim.plants.version == _last_plants_version:
 		return

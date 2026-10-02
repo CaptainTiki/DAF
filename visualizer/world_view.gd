@@ -52,6 +52,15 @@ func set_reveal_all(enabled: bool) -> void:
 	_tiles.reveal_all = enabled
 
 
+func set_room_overlay(enabled: bool) -> void:
+	_marks.show_rooms = enabled
+
+
+## Shows or hides the faint outlines of furniture that isn't built yet.
+func set_planned_furniture_visible(enabled: bool) -> void:
+	_furniture.set_planned_visible(enabled)
+
+
 ## Shows the drag rectangle for a tool, in tiles.
 func show_selection(rect: Rect2i, color: Color) -> void:
 	_tile_selection.visible = false

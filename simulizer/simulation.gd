@@ -82,6 +82,11 @@ func item_type(def: ItemDef) -> int:
 	return config.items.find(def)
 
 
+## A growth speed for a new plant: 1.0 give or take the plant type's variation.
+func roll_growth_speed(def: PlantDef) -> float:
+	return 1.0 + rng.randf_range(-def.growth_variation, def.growth_variation)
+
+
 func is_craftable(type: int) -> bool:
 	for recipe: RecipeDef in config.recipes:
 		if item_type(recipe.output) == type:
@@ -219,7 +224,8 @@ func room_fit(def: RoomDef, rect: Rect2i) -> Rect2i:
 func place_room(def: RoomDef, rect: Rect2i) -> Room:
 	var room: Room = rooms.place(self, def, rect)
 	if room != null:
-		marks_changed.emit(room.rect)
+		# Grown upward as well, in case a joined room had a higher ceiling.
+		marks_changed.emit(room.rect.grow_individual(0, Rooms.MAX_HEIGHT, 0, 0))
 	return room
 
 
@@ -449,7 +455,7 @@ func _plant_trees() -> void:
 			continue
 		columns.append(x)
 		@warning_ignore("integer_division")
-		plants.add(world.tree, Vector2i(x, feet), rng.randi_range(world.tree.grow_ticks / 2, world.tree.grow_ticks))
+		plants.add(world.tree, Vector2i(x, feet), rng.randi_range(world.tree.grow_ticks / 2, world.tree.grow_ticks), roll_growth_speed(world.tree))
 
 
 func _place_supplies() -> void:

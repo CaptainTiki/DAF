@@ -1,6 +1,15 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://ui/hud.gd" id="1_hud"]
+[ext_resource type="Texture2D" path="res://ui/icons/strip.svg" id="icon_strip"]
+[ext_resource type="Texture2D" path="res://ui/icons/full.svg" id="icon_full"]
+[ext_resource type="Texture2D" path="res://ui/icons/corner.svg" id="icon_corner"]
+[ext_resource type="Texture2D" path="res://ui/icons/tray.svg" id="icon_tray"]
+[ext_resource type="Texture2D" path="res://ui/icons/speed1.svg" id="icon_speed1"]
+[ext_resource type="Texture2D" path="res://ui/icons/speed2.svg" id="icon_speed2"]
+[ext_resource type="Texture2D" path="res://ui/icons/speed3.svg" id="icon_speed3"]
+[ext_resource type="Texture2D" path="res://ui/icons/rooms.svg" id="icon_rooms"]
+[ext_resource type="Texture2D" path="res://ui/icons/furniture.svg" id="icon_furniture"]
 
 [sub_resource type="Theme" id="theme_compact"]
 default_font_size = 12
@@ -24,7 +33,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 4.0
 offset_top = -30.0
-offset_right = -4.0
+offset_right = -80.0
 offset_bottom = -4.0
 grow_horizontal = 2
 grow_vertical = 0
@@ -89,26 +98,6 @@ text = "Layer 1"
 layout_mode = 2
 tooltip_text = "Show the layer below"
 text = "Down"
-
-[node name="StripButton" type="Button" parent="Bar"]
-layout_mode = 2
-tooltip_text = "Dock as a strip along the bottom of the screen"
-text = "Strip"
-
-[node name="FullButton" type="Button" parent="Bar"]
-layout_mode = 2
-tooltip_text = "Full screen, free pan and zoom"
-text = "Full"
-
-[node name="CornerButton" type="Button" parent="Bar"]
-layout_mode = 2
-tooltip_text = "Small window in the corner of the screen"
-text = "Corner"
-
-[node name="TrayButton" type="Button" parent="Bar"]
-layout_mode = 2
-tooltip_text = "Hide to the system tray. The hold keeps working."
-text = "Tray"
 
 [node name="RequestsPanel" type="PanelContainer" parent="."]
 visible = false
@@ -185,10 +174,6 @@ layout_mode = 2
 size_flags_horizontal = 3
 text = "Dwarves: 0"
 
-[node name="Speed1" type="Button" parent="DebugPanel/Row"]
-layout_mode = 2
-text = "x1"
-
 [node name="Speed4" type="Button" parent="DebugPanel/Row"]
 layout_mode = 2
 text = "x4"
@@ -201,3 +186,108 @@ text = "x16"
 layout_mode = 2
 tooltip_text = "Show all rock, not just what borders open space"
 text = "Reveal map"
+
+[node name="ViewColumn" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 11
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -74.0
+offset_top = 2.0
+offset_right = -40.0
+offset_bottom = -2.0
+grow_horizontal = 0
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 2
+[node name="Speed1" type="Button" parent="ViewColumn"]
+custom_minimum_size = Vector2(34, 0)
+layout_mode = 2
+size_flags_vertical = 3
+tooltip_text = "Normal speed"
+icon = ExtResource("icon_speed1")
+icon_alignment = 1
+expand_icon = true
+[node name="Speed2" type="Button" parent="ViewColumn"]
+custom_minimum_size = Vector2(34, 0)
+layout_mode = 2
+size_flags_vertical = 3
+tooltip_text = "Double speed"
+icon = ExtResource("icon_speed2")
+icon_alignment = 1
+expand_icon = true
+[node name="Speed3" type="Button" parent="ViewColumn"]
+custom_minimum_size = Vector2(34, 0)
+layout_mode = 2
+size_flags_vertical = 3
+tooltip_text = "Triple speed"
+icon = ExtResource("icon_speed3")
+icon_alignment = 1
+expand_icon = true
+[node name="RoomOverlayButton" type="Button" parent="ViewColumn"]
+custom_minimum_size = Vector2(34, 0)
+layout_mode = 2
+size_flags_vertical = 3
+tooltip_text = "Show room colours"
+toggle_mode = true
+button_pressed = true
+icon = ExtResource("icon_rooms")
+icon_alignment = 1
+expand_icon = true
+[node name="PlannedButton" type="Button" parent="ViewColumn"]
+custom_minimum_size = Vector2(34, 0)
+layout_mode = 2
+size_flags_vertical = 3
+tooltip_text = "Show furniture that is planned but not built yet"
+toggle_mode = true
+button_pressed = true
+icon = ExtResource("icon_furniture")
+icon_alignment = 1
+expand_icon = true
+[node name="WindowColumn" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 11
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -38.0
+offset_top = 2.0
+offset_right = -4.0
+offset_bottom = -2.0
+grow_horizontal = 0
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 2
+[node name="StripButton" type="Button" parent="WindowColumn"]
+custom_minimum_size = Vector2(34, 0)
+layout_mode = 2
+size_flags_vertical = 3
+tooltip_text = "Dock as a strip along the bottom of the screen"
+icon = ExtResource("icon_strip")
+icon_alignment = 1
+expand_icon = true
+[node name="FullButton" type="Button" parent="WindowColumn"]
+custom_minimum_size = Vector2(34, 0)
+layout_mode = 2
+size_flags_vertical = 3
+tooltip_text = "Full screen, free pan and zoom"
+icon = ExtResource("icon_full")
+icon_alignment = 1
+expand_icon = true
+[node name="CornerButton" type="Button" parent="WindowColumn"]
+custom_minimum_size = Vector2(34, 0)
+layout_mode = 2
+size_flags_vertical = 3
+tooltip_text = "Small window in the corner of the screen"
+icon = ExtResource("icon_corner")
+icon_alignment = 1
+expand_icon = true
+[node name="TrayButton" type="Button" parent="WindowColumn"]
+custom_minimum_size = Vector2(34, 0)
+layout_mode = 2
+size_flags_vertical = 3
+tooltip_text = "Hide to the system tray. The hold keeps working."
+icon = ExtResource("icon_tray")
+icon_alignment = 1
+expand_icon = true

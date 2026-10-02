@@ -37,6 +37,8 @@ func _ready() -> void:
 	_hud.hire_requested.connect(_sim.hire_dwarf)
 	_hud.speed_selected.connect(func(multiplier: float) -> void: _clock.speed = multiplier)
 	_hud.reveal_toggled.connect(_world_view.set_reveal_all)
+	_hud.room_overlay_toggled.connect(_world_view.set_room_overlay)
+	_hud.planned_furniture_toggled.connect(_world_view.set_planned_furniture_visible)
 	_hud.layer_step_requested.connect(_world_view.camera.step_layer)
 	_hud.window_mode_requested.connect(_window.set_mode)
 	_world_view.camera.layer_changed.connect(_hud.set_layer)

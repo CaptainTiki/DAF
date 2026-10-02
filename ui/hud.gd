@@ -10,6 +10,9 @@ signal room_tool_selected(def: RoomDef)
 signal hire_requested
 signal speed_selected(multiplier: float)
 signal reveal_toggled(enabled: bool)
+signal room_overlay_toggled(enabled: bool)
+## Whether furniture that is planned but not built yet should be drawn.
+signal planned_furniture_toggled(enabled: bool)
 signal window_mode_requested(mode: WindowController.Mode)
 signal layer_step_requested(direction: int)
 
@@ -25,10 +28,12 @@ signal layer_step_requested(direction: int)
 @onready var _layer_up: Button = $Bar/LayerUpButton
 @onready var _layer_label: Label = $Bar/LayerLabel
 @onready var _layer_down: Button = $Bar/LayerDownButton
-@onready var _strip_button: Button = $Bar/StripButton
-@onready var _full_button: Button = $Bar/FullButton
-@onready var _corner_button: Button = $Bar/CornerButton
-@onready var _tray_button: Button = $Bar/TrayButton
+@onready var _strip_button: Button = $WindowColumn/StripButton
+@onready var _full_button: Button = $WindowColumn/FullButton
+@onready var _corner_button: Button = $WindowColumn/CornerButton
+@onready var _tray_button: Button = $WindowColumn/TrayButton
+@onready var _room_overlay_button: Button = $ViewColumn/RoomOverlayButton
+@onready var _planned_button: Button = $ViewColumn/PlannedButton
 @onready var _requests_panel: PanelContainer = $RequestsPanel
 @onready var _requests_list: RichTextLabel = $RequestsPanel/Rows/List
 @onready var _clear_button: Button = $RequestsPanel/Rows/Header/ClearButton
@@ -37,7 +42,7 @@ signal layer_step_requested(direction: int)
 @onready var _dwarf_count: Label = $DebugPanel/Row/DwarfCount
 @onready var _reveal_check: CheckButton = $DebugPanel/Row/RevealCheck
 
-const SPEEDS: Array[float] = [1.0, 4.0, 16.0]
+const SPEEDS: Array[float] = [1.0, 2.0, 3.0, 4.0, 16.0]
 
 var _sim: Simulation
 var _tool_buttons: Dictionary[ToolController.Tool, Button] = {}
@@ -46,7 +51,7 @@ var _speed_buttons: Array[Button] = []
 
 
 func _ready() -> void:
-	_speed_buttons.assign([$DebugPanel/Row/Speed1, $DebugPanel/Row/Speed4, $DebugPanel/Row/Speed16])
+	_speed_buttons.assign([$ViewColumn/Speed1, $ViewColumn/Speed2, $ViewColumn/Speed3, $DebugPanel/Row/Speed4, $DebugPanel/Row/Speed16])
 	_tool_buttons = {
 		ToolController.Tool.DIG: _dig_button,
 		ToolController.Tool.STOCKPILE: _stockpile_button,
@@ -65,6 +70,8 @@ func _ready() -> void:
 	_tray_button.pressed.connect(func() -> void: window_mode_requested.emit(WindowController.Mode.TRAY))
 	_hire_button.pressed.connect(func() -> void: hire_requested.emit())
 	_reveal_check.toggled.connect(func(enabled: bool) -> void: reveal_toggled.emit(enabled))
+	_room_overlay_button.toggled.connect(func(enabled: bool) -> void: room_overlay_toggled.emit(enabled))
+	_planned_button.toggled.connect(func(enabled: bool) -> void: planned_furniture_toggled.emit(enabled))
 	for i in _speed_buttons.size():
 		_speed_buttons[i].pressed.connect(_on_speed_pressed.bind(i))
 	_on_speed_pressed(0)

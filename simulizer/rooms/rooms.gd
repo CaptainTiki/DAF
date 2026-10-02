@@ -21,7 +21,8 @@ func room_at(tile: Vector2i) -> Room:
 
 
 ## The room a drag would make: the rect snapped to the floor it touches and
-## the open space above it. An empty rect means a room can't go there.
+## the open space above it, widened to take in any room of the same type that
+## it touches or overlaps. An empty rect means a room can't go there.
 func fit(grid: TileGrid, def: RoomDef, rect: Rect2i) -> Rect2i:
 	var left: int = maxi(rect.position.x, 0)
 	var right: int = mini(rect.end.x, grid.width) - 1
@@ -34,9 +35,16 @@ func fit(grid: TileGrid, def: RoomDef, rect: Rect2i) -> Rect2i:
 			break
 	if feet < 0:
 		return Rect2i()
+	var joined: Array[Room] = _rooms_to_join(def, feet, left, right)
+	for room: Room in joined:
+		left = mini(left, room.rect.position.x)
+		right = maxi(right, room.rect.end.x - 1)
 	var height: int = MAX_HEIGHT
 	for x in range(left, right + 1):
-		if not _is_floor_spot(grid, x, feet) or _room_at.has(Vector2i(x, feet)) or grid.is_stockpile(x, feet):
+		if not _is_floor_spot(grid, x, feet) or grid.is_stockpile(x, feet):
+			return Rect2i()
+		var existing: Room = _room_at.get(Vector2i(x, feet))
+		if existing != null and not joined.has(existing):
 			return Rect2i()
 		var open: int = 0
 		while open < height and _is_indoors(grid, x, feet - open):
@@ -48,6 +56,8 @@ func fit(grid: TileGrid, def: RoomDef, rect: Rect2i) -> Rect2i:
 	return Rect2i(left, feet - height + 1, width, height)
 
 
+## Makes a room, or extends the rooms of the same type that the drag touches
+## into one. What is already in place stays where it is.
 func place(sim: Simulation, def: RoomDef, rect: Rect2i) -> Room:
 	var fitted: Rect2i = fit(sim.grid, def, rect)
 	if fitted.size == Vector2i.ZERO:
@@ -58,15 +68,34 @@ func place(sim: Simulation, def: RoomDef, rect: Rect2i) -> Room:
 	room.def = def
 	room.rect = fitted
 	room.feet_row = fitted.end.y - 1
+	room.anchor_x = fitted.position.x + def.margin
+
+	# Take over the rooms being joined: their slots are kept to be reused.
+	var joined: Array[Room] = _rooms_to_join(def, room.feet_row, fitted.position.x, fitted.end.x - 1)
+	var old_slots: Array[RoomSlot] = []
+	var leftmost: Room = null
+	for old: Room in joined:
+		if leftmost == null or old.rect.position.x < leftmost.rect.position.x:
+			# Keep the layout lined up with the leftmost old room, so its benches don't move.
+			leftmost = old
+			room.anchor_x = old.anchor_x
+		old_slots.append_array(old.slots)
+		old.slots.clear()
+		old.removed = true
+		rooms.erase(old)
+		_set_tiles(sim, old.rect, null)
+
 	rooms.append(room)
-	for y in range(fitted.position.y, fitted.end.y):
-		for x in range(fitted.position.x, fitted.end.x):
-			_room_at[Vector2i(x, y)] = room
-			sim.grid.set_flag(x, y, TileGrid.FLAG_ROOM, true)
-	_lay_out(sim, room)
+	_set_tiles(sim, fitted, room)
+	_lay_out(sim, room, old_slots)
+	# Whatever no longer has a place in the new layout drops to the floor.
+	for slot: RoomSlot in old_slots:
+		_clear_slot(sim, slot)
+	for slot: RoomSlot in room.slots:
+		if slot.station != null:
+			slot.station.output = _output_pile_for(slot)
 	changed.emit()
 	return room
-
 
 ## Takes a room away. Furniture, materials and stored goods are left on the floor.
 func remove(sim: Simulation, room: Room) -> void:
@@ -76,10 +105,7 @@ func remove(sim: Simulation, room: Room) -> void:
 	rooms.erase(room)
 	for slot: RoomSlot in room.slots:
 		_clear_slot(sim, slot)
-	for y in range(room.rect.position.y, room.rect.end.y):
-		for x in range(room.rect.position.x, room.rect.end.x):
-			_room_at.erase(Vector2i(x, y))
-			sim.grid.set_flag(x, y, TileGrid.FLAG_ROOM, false)
+	_set_tiles(sim, room.rect, null)
 	changed.emit()
 
 
@@ -159,19 +185,32 @@ func find_seat(flood_map: FloodMap) -> RoomSlot:
 	return best
 
 
-func _lay_out(sim: Simulation, room: Room) -> void:
+## Fills the room with slots: the layout repeats every pattern_width tiles,
+## lined up on the room's anchor and kept clear of the margins. A slot from
+## `reusable` that sits where a new one would go is kept as it is, and taken
+## out of that list.
+func _lay_out(sim: Simulation, room: Room, reusable: Array[RoomSlot]) -> void:
 	var def: RoomDef = room.def
 	var pattern_width: int = maxi(def.pattern_width, 1)
-	@warning_ignore("integer_division")
-	var units: int = (room.rect.size.x - def.margin * 2) / pattern_width
-	for unit in units:
-		var base_x: int = room.rect.position.x + def.margin + unit * pattern_width
+	var first_x: int = room.rect.position.x + def.margin
+	var last_x: int = room.rect.end.x - def.margin - pattern_width
+	# Leftmost unit position on the anchor's grid that is still inside the room.
+	var base_x: int = room.anchor_x + ceili(float(first_x - room.anchor_x) / pattern_width) * pattern_width
+	var unit: int = 0
+	while base_x <= last_x:
 		for slot_def: SlotDef in def.slots:
+			var tile := Vector2i(base_x + slot_def.offset, room.feet_row)
+			var kept: RoomSlot = _take_matching(reusable, slot_def, tile)
+			if kept != null:
+				kept.room = room
+				kept.unit = unit
+				room.slots.append(kept)
+				continue
 			var slot := RoomSlot.new()
 			slot.room = room
 			slot.def = slot_def
 			slot.unit = unit
-			slot.tile = Vector2i(base_x + slot_def.offset, room.feet_row)
+			slot.tile = tile
 			room.slots.append(slot)
 			match slot_def.kind:
 				SlotDef.Kind.FURNITURE, SlotDef.Kind.STATION:
@@ -180,7 +219,48 @@ func _lay_out(sim: Simulation, room: Room) -> void:
 				SlotDef.Kind.OUTPUT:
 					slot.pile = sim.storage.add_pile(Pile.Kind.OUTPUT, slot.tile, sim.config.pile_capacity)
 				SlotDef.Kind.PLANT:
-					slot.plant = sim.plants.add(slot_def.plant, slot.tile, 0)
+					slot.plant = sim.plants.add(slot_def.plant, slot.tile, 0, sim.roll_growth_speed(slot_def.plant))
+		base_x += pattern_width
+		unit += 1
+
+
+func _take_matching(slots: Array[RoomSlot], def: SlotDef, tile: Vector2i) -> RoomSlot:
+	for i in slots.size():
+		if slots[i].def == def and slots[i].tile == tile:
+			var slot: RoomSlot = slots[i]
+			slots.remove_at(i)
+			return slot
+	return null
+
+
+## Rooms of this type on this floor that touch or overlap the span of columns.
+## Joining one can bring the span up against another, so it repeats until settled.
+func _rooms_to_join(def: RoomDef, feet: int, left: int, right: int) -> Array[Room]:
+	var joined: Array[Room] = []
+	var grew: bool = true
+	while grew:
+		grew = false
+		for room: Room in rooms:
+			if room.def != def or room.feet_row != feet or joined.has(room):
+				continue
+			if room.rect.position.x > right + 1 or room.rect.end.x < left:
+				continue
+			joined.append(room)
+			left = mini(left, room.rect.position.x)
+			right = maxi(right, room.rect.end.x - 1)
+			grew = true
+	return joined
+
+
+## Marks every tile of a rect as belonging to a room, or to none.
+func _set_tiles(sim: Simulation, rect: Rect2i, room: Room) -> void:
+	for y in range(rect.position.y, rect.end.y):
+		for x in range(rect.position.x, rect.end.x):
+			if room == null:
+				_room_at.erase(Vector2i(x, y))
+			else:
+				_room_at[Vector2i(x, y)] = room
+			sim.grid.set_flag(x, y, TileGrid.FLAG_ROOM, room != null)
 
 
 func _clear_slot(sim: Simulation, slot: RoomSlot) -> void:
