@@ -189,14 +189,22 @@ func _tick_sit(sim: Simulation, dwarf: Dwarf) -> void:
 
 # --- Needs ---
 
-## Sets off for somewhere to satisfy the most pressing need, if there is one
-## and somewhere to go.
+## Sets off to see to the most pressing need that can be seen to. One that
+## can't (nothing to drink anywhere) is reported and the next is tried, so a
+## thirsty dwarf with no ale still goes and eats.
 func _try_satisfy_need(sim: Simulation, dwarf: Dwarf) -> bool:
-	var index: int = sim.needs.most_pressing(sim, dwarf)
-	if index < 0:
+	var pressing: Array[int] = sim.needs.pressing(sim, dwarf)
+	if pressing.is_empty():
 		return false
-	var need: NeedDef = sim.config.needs[index]
 	var flood_map: FloodMap = Pathfinder.flood(sim.grid, dwarf.pos)
+	for index: int in pressing:
+		if _try_satisfy(sim, dwarf, index, flood_map):
+			return true
+	return false
+
+
+func _try_satisfy(sim: Simulation, dwarf: Dwarf, index: int, flood_map: FloodMap) -> bool:
+	var need: NeedDef = sim.config.needs[index]
 	var slot: RoomSlot = sim.rooms.find_provider(need.provider, dwarf.id, flood_map, need.owned)
 	if slot == null:
 		sim.requests.post(StringName("no_%s_place" % need.id), dwarf.display_name, need.no_provider_message, sim.tick_count, sim.config.request_refresh_ticks)

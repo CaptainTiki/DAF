@@ -207,3 +207,21 @@ func test_nobody_else_fetches_a_dwarfs_own_meal() -> void:
 			carried_a_meal = true
 	assert_false(carried_a_meal, "the other dwarf, not hungry, never carries a meal")
 	assert_gt(_dwarf.needs[SimFactory.FOOD], 0.3, "while the hungry one got theirs")
+
+func test_a_need_that_cannot_be_met_does_not_stop_the_next_one() -> void:
+	# Thirsty with nothing to drink anywhere, and hungry with meals on hand.
+	var drink := NeedDef.new()
+	drink.id = &"drink"
+	drink.display_name = "Drink"
+	drink.decay_ticks = SimFactory.SLOW
+	drink.seek_below = 0.4
+	drink.provider = &"dining"
+	drink.consumes = [_sim.config.items[SimFactory.STONE_BALL]]
+	drink.no_item_message = "nothing to drink."
+	_sim.config.needs.append(drink)
+	_dwarf.needs.append(0.05)
+	_dwarf.need_quality.append(0)
+	_hall(Rect2i(14, 6, 5, 1))
+	_supply(SimFactory.MEAL, 2, Vector2i(8, 6))
+	_dwarf.needs[SimFactory.FOOD] = 0.3
+	assert_ne(_run_until_eating(400), Vector2i(-1, -1), "still goes and eats")

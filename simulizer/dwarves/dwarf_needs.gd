@@ -63,17 +63,16 @@ func demand_for(sim: Simulation, type: int) -> int:
 	return total
 
 
-## Index of the need this dwarf should go and see to now, or -1.
-## The lowest one below its seek level wins.
-func most_pressing(sim: Simulation, dwarf: Dwarf) -> int:
+## The needs this dwarf should see to, most pressing (lowest) first.
+## Only those below their seek level are listed.
+func pressing(sim: Simulation, dwarf: Dwarf) -> Array[int]:
 	var needs: Array[NeedDef] = sim.config.needs
-	var best: int = -1
+	var listed: Array[int] = []
 	for i in needs.size():
-		if dwarf.needs[i] >= needs[i].seek_below:
-			continue
-		if best < 0 or dwarf.needs[i] < dwarf.needs[best]:
-			best = i
-	return best
+		if dwarf.needs[i] < needs[i].seek_below:
+			listed.append(i)
+	listed.sort_custom(func(a: int, b: int) -> bool: return dwarf.needs[a] < dwarf.needs[b])
+	return listed
 
 
 ## How much longer or shorter this dwarf's walking and working take, from mood.
