@@ -73,6 +73,8 @@ static func _grow_vein(grid: TileGrid, rng: RandomNumberGenerator, material: int
 
 
 static func _carve_entry_room(grid: TileGrid, config: WorldGenConfig) -> void:
+	if config.entry_room_width <= 0:
+		return
 	var room: Rect2i = entry_room_rect(config)
 	for y in range(room.position.y, room.end.y):
 		for x in range(room.position.x, room.end.x):

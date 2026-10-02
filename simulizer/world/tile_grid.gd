@@ -13,6 +13,7 @@ const FLAG_SOLID: int = 1
 const FLAG_DIG_MARK: int = 2
 const FLAG_STOCKPILE: int = 4
 const FLAG_BUILD_MARK: int = 8
+const FLAG_ROOM: int = 16
 
 var width: int
 var height: int

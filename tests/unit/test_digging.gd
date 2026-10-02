@@ -49,11 +49,11 @@ func test_dwarf_walks_over_digs_and_drops_a_ball() -> void:
 	SimFactory.run(_sim, 60)
 	assert_true(_sim.grid.is_open(15, 6))
 	assert_false(_sim.grid.is_dig_marked(15, 6))
-	assert_eq(_sim.board.dig_jobs().size(), 0)
+	assert_eq(_sim.board.jobs_of(Job.Kind.DIG).size(), 0)
 	assert_eq(_sim.items.size(), 1)
 	var item: Item = _sim.items.values()[0]
 	assert_eq(item.pos, Vector2i(15, 6))
-	assert_eq(item.material, SimFactory.DIRT)
+	assert_eq(item.type, SimFactory.DIRT_BALL)
 	assert_true(item.settled)
 	assert_eq(_dwarf.experience, 1)
 
@@ -63,7 +63,7 @@ func test_dwarf_digs_from_beside_the_tile() -> void:
 	var dug_from: Array[Vector2i] = []
 	for i in 200:
 		_sim.tick()
-		if _dwarf.activity == Dwarf.Activity.DIG:
+		if _dwarf.activity == Dwarf.Activity.WORK:
 			assert_true(Pathfinder.can_reach(_dwarf.pos, _dwarf.work_tile), "tile is in reach")
 			assert_ne(_dwarf.pos.x, _dwarf.work_tile.x, "never digs own column")
 			if not dug_from.has(_dwarf.pos):

@@ -10,6 +10,7 @@
 [ext_resource type="Resource" path="res://data/materials/silver.tres" id="8_silver"]
 [ext_resource type="Resource" path="res://data/materials/gold.tres" id="9_gold"]
 [ext_resource type="Resource" path="res://data/materials/gem.tres" id="10_gem"]
+[ext_resource type="Resource" path="res://data/plants/surface_tree.tres" id="11_tree"]
 
 [sub_resource type="Resource" id="vein_topsoil_stone"]
 script = ExtResource("3_vein")
@@ -124,7 +125,10 @@ script = ExtResource("1_config")
 width = 160
 layer_count = 30
 layer_height = 4
-sky_rows = 3
-entry_room_width = 12
+sky_rows = 8
+entry_room_width = 0
 band_jitter = 0.03
+tree = ExtResource("11_tree")
+tree_count = 8
+tree_clearing = 5
 bands = Array[ExtResource("2_band")]([SubResource("band_topsoil"), SubResource("band_upper_rock"), SubResource("band_mid_rock"), SubResource("band_deep_rock")])

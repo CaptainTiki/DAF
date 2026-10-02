@@ -28,7 +28,7 @@ func test_marking_plans_stairs_in_rock_and_posts_jobs() -> void:
 	assert_eq(_sim.mark_stairs(FLIGHT, true), 3)
 	assert_true(_sim.grid.is_build_marked(13, 7))
 	assert_true(_sim.grid.is_solid(13, 7), "planning doesn't dig")
-	assert_eq(_sim.board.build_jobs().size(), 3)
+	assert_eq(_sim.board.jobs_of(Job.Kind.BUILD).size(), 3)
 	assert_eq(_sim.mark_stairs(FLIGHT, true), 0, "already planned")
 
 
@@ -46,7 +46,7 @@ func test_dwarf_builds_the_whole_flight_from_the_top() -> void:
 	for tile: Vector2i in FLIGHT:
 		assert_true(_sim.grid.has_stair(tile.x, tile.y), "stair at %s" % tile)
 		assert_false(_sim.grid.is_build_marked(tile.x, tile.y))
-	assert_eq(_sim.board.build_jobs().size(), 0)
+	assert_eq(_sim.board.jobs_of(Job.Kind.BUILD).size(), 0)
 	assert_eq(_sim.items.size(), 0, "building drops nothing")
 
 
@@ -107,7 +107,7 @@ func test_dwarves_spread_along_the_work_face() -> void:
 	var together: int = 0
 	for i in 60:
 		_sim.tick()
-		if _dwarf.activity == Dwarf.Activity.DIG and other.activity == Dwarf.Activity.DIG and _dwarf.pos == other.pos:
+		if _dwarf.activity == Dwarf.Activity.WORK and other.activity == Dwarf.Activity.WORK and _dwarf.pos == other.pos:
 			together += 1
 	assert_eq(together, 0)
 

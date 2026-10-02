@@ -1,18 +1,20 @@
 class_name Item
 extends RefCounted
-## A resource ball: dropped by digging, carried by haulers, absorbed into a pallet.
+## One loose or carried thing in the world. Items resting in a pile are only
+## counted by the pile; they become an Item again when someone picks one up.
 
 enum State { LOOSE, CARRIED }
 
 var id: int
-var material: int
+## Index into SimConfig.items.
+var type: int
 var pos: Vector2i
 ## Where the current fall step started. Views interpolate from here to pos.
 var from_pos: Vector2i
 var move_ticks_left: int = 0
 var move_ticks_total: int = 1
 var state: State = State.LOOSE
-## True once the ball has come to rest and can be hauled.
+## True once the item has come to rest and can be hauled.
 var settled: bool = false
 
 

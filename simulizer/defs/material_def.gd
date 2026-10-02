@@ -7,5 +7,5 @@ extends Resource
 @export var color: Color = Color.WHITE
 ## Sim ticks a dwarf needs to dig one tile of this material.
 @export_range(1, 2000) var dig_ticks: int = 30
-## Material of the resource ball dropped when dug. Null drops this same material.
-@export var drop: MaterialDef
+## Item dropped when a tile of this material is dug.
+@export var drop: ItemDef

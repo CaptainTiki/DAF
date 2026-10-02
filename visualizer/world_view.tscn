@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://visualizer/item_layer.gd" id="5_items"]
 [ext_resource type="PackedScene" path="res://visualizer/dwarf_view.tscn" id="6_dwarf"]
 [ext_resource type="Script" path="res://visualizer/structure_layer.gd" id="7_structures"]
+[ext_resource type="Script" path="res://visualizer/furniture_layer.gd" id="8_furniture"]
 
 [sub_resource type="Environment" id="environment"]
 background_mode = 1
@@ -56,14 +57,31 @@ transform_format = 1
 use_colors = true
 mesh = SubResource("mesh_ball")
 
-[sub_resource type="BoxMesh" id="mesh_pallet"]
+[sub_resource type="BoxMesh" id="mesh_box"]
 material = SubResource("mat_instanced")
-size = Vector3(0.92, 0.1, 0.6)
 
-[sub_resource type="MultiMesh" id="mm_pallet_bases"]
+[sub_resource type="BoxMesh" id="mesh_box_ghost"]
+material = SubResource("mat_mark")
+
+[sub_resource type="MultiMesh" id="mm_loose_shapes"]
 transform_format = 1
 use_colors = true
-mesh = SubResource("mesh_pallet")
+mesh = SubResource("mesh_box")
+
+[sub_resource type="MultiMesh" id="mm_pile_shapes"]
+transform_format = 1
+use_colors = true
+mesh = SubResource("mesh_box")
+
+[sub_resource type="MultiMesh" id="mm_furniture"]
+transform_format = 1
+use_colors = true
+mesh = SubResource("mesh_box")
+
+[sub_resource type="MultiMesh" id="mm_furniture_ghost"]
+transform_format = 1
+use_colors = true
+mesh = SubResource("mesh_box_ghost")
 
 [sub_resource type="BoxMesh" id="mesh_stair"]
 material = SubResource("mat_instanced")
@@ -122,11 +140,23 @@ script = ExtResource("5_items")
 [node name="LooseBalls" type="MultiMeshInstance3D" parent="Items"]
 multimesh = SubResource("mm_loose")
 
-[node name="PalletBalls" type="MultiMeshInstance3D" parent="Items"]
+[node name="PileBalls" type="MultiMeshInstance3D" parent="Items"]
 multimesh = SubResource("mm_pallet_balls")
 
-[node name="PalletBases" type="MultiMeshInstance3D" parent="Items"]
-multimesh = SubResource("mm_pallet_bases")
+[node name="LooseShapes" type="MultiMeshInstance3D" parent="Items"]
+multimesh = SubResource("mm_loose_shapes")
+
+[node name="PileShapes" type="MultiMeshInstance3D" parent="Items"]
+multimesh = SubResource("mm_pile_shapes")
+
+[node name="Furniture" type="Node3D" parent="."]
+script = ExtResource("8_furniture")
+
+[node name="Solid" type="MultiMeshInstance3D" parent="Furniture"]
+multimesh = SubResource("mm_furniture")
+
+[node name="Ghost" type="MultiMeshInstance3D" parent="Furniture"]
+multimesh = SubResource("mm_furniture_ghost")
 
 [node name="Structures" type="MultiMeshInstance3D" parent="."]
 multimesh = SubResource("mm_structures")

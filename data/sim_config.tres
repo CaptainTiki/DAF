@@ -10,22 +10,49 @@
 [ext_resource type="Resource" path="res://data/materials/silver.tres" id="8_silver"]
 [ext_resource type="Resource" path="res://data/materials/gold.tres" id="9_gold"]
 [ext_resource type="Resource" path="res://data/materials/gem.tres" id="10_gem"]
+[ext_resource type="Script" path="res://simulizer/defs/item_def.gd" id="11_item"]
+[ext_resource type="Resource" path="res://data/items/dirt.tres" id="12_i_dirt"]
+[ext_resource type="Resource" path="res://data/items/stone.tres" id="13_i_stone"]
+[ext_resource type="Resource" path="res://data/items/copper_ore.tres" id="14_i_copper"]
+[ext_resource type="Resource" path="res://data/items/iron_ore.tres" id="15_i_iron"]
+[ext_resource type="Resource" path="res://data/items/silver_ore.tres" id="16_i_silver"]
+[ext_resource type="Resource" path="res://data/items/gold_ore.tres" id="17_i_gold"]
+[ext_resource type="Resource" path="res://data/items/gem.tres" id="18_i_gem"]
+[ext_resource type="Resource" path="res://data/items/wood.tres" id="19_i_wood"]
+[ext_resource type="Resource" path="res://data/items/chair.tres" id="20_i_chair"]
+[ext_resource type="Resource" path="res://data/items/table.tres" id="21_i_table"]
+[ext_resource type="Script" path="res://simulizer/defs/recipe_def.gd" id="22_recipe"]
+[ext_resource type="Resource" path="res://data/recipes/chair.tres" id="23_r_chair"]
+[ext_resource type="Resource" path="res://data/recipes/table.tres" id="24_r_table"]
+[ext_resource type="Script" path="res://simulizer/defs/room_def.gd" id="25_room"]
+[ext_resource type="Resource" path="res://data/rooms/carpentry.tres" id="26_carpentry"]
+[ext_resource type="Resource" path="res://data/rooms/hall.tres" id="27_hall"]
+[ext_resource type="Resource" path="res://data/rooms/mushroom_farm.tres" id="28_farm"]
 
 [resource]
 script = ExtResource("1_config")
 ticks_per_second = 20
 materials = Array[ExtResource("2_material")]([ExtResource("4_dirt"), ExtResource("5_stone"), ExtResource("6_copper"), ExtResource("7_iron"), ExtResource("8_silver"), ExtResource("9_gold"), ExtResource("10_gem")])
+items = Array[ExtResource("11_item")]([ExtResource("12_i_dirt"), ExtResource("13_i_stone"), ExtResource("14_i_copper"), ExtResource("15_i_iron"), ExtResource("16_i_silver"), ExtResource("17_i_gold"), ExtResource("18_i_gem"), ExtResource("19_i_wood"), ExtResource("20_i_chair"), ExtResource("21_i_table")])
+recipes = Array[ExtResource("22_recipe")]([ExtResource("23_r_chair"), ExtResource("24_r_table")])
+rooms = Array[ExtResource("25_room")]([ExtResource("26_carpentry"), ExtResource("27_hall"), ExtResource("28_farm")])
 world_gen = ExtResource("3_world")
+starting_item = ExtResource("19_i_wood")
+starting_item_count = 10
 walk_ticks = 6
 fall_ticks = 2
 idle_retry_ticks = 20
 wander_chance = 0.25
 wander_range = 6
+sit_chance = 0.6
+sit_ticks_min = 200
+sit_ticks_max = 600
 job_retry_ticks = 100
 dwarf_names = PackedStringArray("Brokk", "Dagna", "Thrain", "Hilde", "Orin", "Gerta", "Bofri", "Sigrun", "Durgan", "Marta", "Kelda", "Rurik", "Yrsa", "Nali", "Thora", "Grum", "Astrid", "Dolgrim", "Ingra", "Varn")
 think_ticks_max = 6
 pace_variation = 0.15
 stair_build_ticks = 50
-pallet_capacity = 10
-haul_priority_threshold = 3
+stair_item = ExtResource("19_i_wood")
+stair_item_count = 1
+pile_capacity = 10
 request_refresh_ticks = 200

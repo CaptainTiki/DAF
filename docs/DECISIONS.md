@@ -2,6 +2,58 @@
 
 Judgment calls made while building, newest milestone first. Each entry says what was decided and why.
 
+## Milestone 02: Order chain
+
+### Items and storage
+- A ball is now an item with a type (`ItemDef`): dirt, ores, wood, chair, table. Each material names the item it drops.
+- Each item type has a size in storage units. A pile holds 10 units: ten balls, three chairs or two tables.
+- Three kinds of pile: stockpile (one item type each, on tiles the player marks), output (beside a bench, mixed types) and supply (the starting goods, no limit).
+- An empty stockpile pile gives its tile back, so another type can use it.
+
+### Deliveries
+- Any place can ask for items with a `Request`: a planned stair asks for wood, a bench for its inputs, a hall slot for a chair.
+- Haulers serve requests first, taking the item from wherever is nearest (loose on the floor or in any pile). Loose items with no request go to the stockpile. Last, output and supply piles are cleared into the stockpile, but only items nobody is asking for.
+- A request nobody can fill is reported in the requests log, unless a bench can make the item, in which case it is simply still being made.
+
+### How dwarves pick work
+- The old rule (everyone hauls once 3 balls are waiting) is gone.
+- Kinds of work are ranked each time a dwarf looks. A kind with work waiting and nobody on it comes first, the longest-neglected at the front. After that, kinds are ranked by work waiting per dwarf already on it.
+- A lone dwarf therefore alternates between kinds, and a crew splits itself across them.
+- A dwarf who has worked at a bench treats it as a post: craft if ready, fetch its inputs, and haul only when its output pile is full. The craft job is kept for that dwarf for 10 seconds (`post_patience_ticks`) before anyone else may take it.
+
+### Rooms
+- The player picks a room type and drags over dug floor. The room snaps to the floor and the open space above it.
+- Everything in a room is derived from its width by the room type's layout: a margin at each end and a set of slots that repeats every N tiles. Nobody places furniture.
+- Room types are data (`data/rooms/*.tres`) with a category, minimum width and minimum open height.
+- Hall: a chair and a table on every tile except one at each end. 5 wide gives 3 of each; 10 wide gives 8 of each.
+- Carpentry: a 3-wide bench plus 1 output tile, repeating every 4 tiles. A wider workshop has more benches.
+- Mushroom farm: a plot every 2 tiles.
+- Rooms can't overlap each other or stockpile tiles, and can't go on the surface.
+- Right-drag with the Room tool removes a room. Its furniture, bench materials and stored goods drop to the floor.
+
+### Making things
+- Nobody queues orders. Every 10 ticks, for each recipe: items being asked for, minus items on hand, minus items already being made, becomes pending orders. So exactly what is wanted gets made.
+- A bench takes one order, asks for its inputs, and offers a craft job once they are in and its output pile has room.
+- Furniture is installed the moment it is delivered to its slot; there is no separate install job.
+- A bench costs 4 wood and is built in place. A chair costs 1 wood, a table 2, a stair tile 1.
+
+### The start
+- No pre-dug room. Dwarves arrive on the surface beside 10 wood.
+- 8 sky rows (was 3), so the surface has room for trees. The grid is 160 x 129.
+- Surface trees and farm mushrooms are the same thing (`PlantDef`): they grow, offer a harvest job when full grown, drop items and regrow. A tree gives 3 wood every 8 minutes; a mushroom gives 1 wood every 2 minutes.
+- Trees are always cut when full grown. There is no chop tool.
+
+### Sitting
+- An idle dwarf about to wander may sit on a free chair instead, facing the camera, behind the table. They still check for work and get up for it.
+- There is no food or hunger yet; sitting is only a place to be idle.
+
+### Window
+- The project's stretch mode scales the UI with the window. That is kept for full screen. In the strip and corner the window controller turns it off, because there it would shrink the UI to a quarter size.
+
+### Not done
+- Digging the floor out from under a room, a bench or a tree is not handled; they stay where they are.
+- Trees are drawn slightly cut off at the top in the strip view.
+
 ## Milestone 01: Ant farm
 
 ### Project layout

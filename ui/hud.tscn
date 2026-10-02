@@ -48,6 +48,12 @@ tooltip_text = "Drag diagonally to plan stairs. They can run through rock and fl
 toggle_mode = true
 text = "Stairs"
 
+[node name="RoomButton" type="Button" parent="Bar"]
+layout_mode = 2
+tooltip_text = "Give a stretch of dug floor a purpose."
+toggle_mode = true
+text = "Room"
+
 [node name="RequestsButton" type="Button" parent="Bar"]
 layout_mode = 2
 toggle_mode = true
@@ -135,6 +141,25 @@ text = "Clear"
 layout_mode = 2
 size_flags_vertical = 3
 bbcode_enabled = true
+
+[node name="RoomPanel" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 4.0
+offset_top = -68.0
+offset_right = 484.0
+offset_bottom = -34.0
+grow_vertical = 0
+
+[node name="Row" type="HBoxContainer" parent="RoomPanel"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="RoomPanel/Row"]
+layout_mode = 2
+text = "Room type:"
 
 [node name="DebugPanel" type="PanelContainer" parent="."]
 visible = false

@@ -8,36 +8,61 @@ signal tile_changed(x: int, y: int)
 signal marks_changed(rect: Rect2i)
 signal dwarf_hired(dwarf: Dwarf)
 
+## How often pending orders are recalculated, in ticks.
+const ORDER_INTERVAL: int = 10
+const NO_ITEM: int = -1
+
 var config: SimConfig
 var rng := RandomNumberGenerator.new()
 var grid: TileGrid
 var board := JobBoard.new()
 var storage: Storage
+var logistics := Logistics.new()
+var rooms := Rooms.new()
+var plants := Plants.new()
+var orders := Orders.new()
 var requests := RequestLog.new()
 var dwarves: Array[Dwarf] = []
 var items: Dictionary[int, Item] = {}
+## Things waiting to be built: planned stairs and unfinished room slots.
+var sites: Array[BuildSite] = []
 var tick_count: int = 0
-## Bumped whenever a ball appears, disappears, is picked up, dropped or comes to rest,
+## Bumped whenever an item appears, disappears, is picked up, dropped or comes to rest,
 ## so views can skip rebuilding when nothing changed.
 var items_version: int = 0
+## Tick at which each Job.Kind was last taken up by a dwarf.
+var kind_served: PackedInt32Array
 
 var _driver := DwarfDriver.new()
 var _unsettled: Array[Item] = []
+var _stair_sites: Dictionary[Vector2i, BuildSite] = {}
 var _next_item_id: int = 1
 var _name_order: PackedInt32Array
+## Item type dropped per material index.
+var _drop_type: PackedInt32Array
 
 
 func _init(p_config: SimConfig, world_seed: int) -> void:
 	config = p_config
 	rng.seed = world_seed
 	grid = WorldGenerator.generate(config.world_gen, config.materials, rng)
-	storage = Storage.new(config.materials.size())
+	storage = Storage.new(config.items, config.pile_capacity)
+	kind_served.resize(Job.KIND_COUNT)
+	for material: MaterialDef in config.materials:
+		_drop_type.append(item_type(material.drop))
 	_name_order = _shuffled_indices(config.dwarf_names.size())
+	_plant_trees()
+	_place_supplies()
 
 
 func tick() -> void:
 	tick_count += 1
 	_tick_items()
+	plants.tick(board)
+	if tick_count % ORDER_INTERVAL == 0:
+		orders.update(self)
+	rooms.tick(self)
+	_tick_sites()
 	for dwarf: Dwarf in dwarves:
 		_driver.tick(self, dwarf)
 
@@ -46,18 +71,59 @@ func material_def(material: int) -> MaterialDef:
 	return config.materials[material]
 
 
+func item_def(type: int) -> ItemDef:
+	return config.items[type]
+
+
+## Index of an item definition, or NO_ITEM for null or unknown.
+func item_type(def: ItemDef) -> int:
+	if def == null:
+		return NO_ITEM
+	return config.items.find(def)
+
+
+func is_craftable(type: int) -> bool:
+	for recipe: RecipeDef in config.recipes:
+		if item_type(recipe.output) == type:
+			return true
+	return false
+
+
 func unsettled_item_count() -> int:
 	return _unsettled.size()
+
+
+## Loose items of a type that nobody is already carrying off to a request.
+func loose_unassigned_count(type: int) -> int:
+	var count: int = 0
+	for item: Item in items.values():
+		if item.type != type or item.state != Item.State.LOOSE:
+			continue
+		var job: Job = board.haul_job_for(item)
+		if job == null or job.dest_request == null:
+			count += 1
+	return count
+
+
+## Where new dwarves arrive: the entry room if the world has one, otherwise
+## the middle of the surface.
+func spawn_point() -> Vector2i:
+	var world: WorldGenConfig = config.world_gen
+	if world.entry_room_width > 0:
+		var room: Rect2i = WorldGenerator.entry_room_rect(world)
+		@warning_ignore("integer_division")
+		return Vector2i(room.position.x + room.size.x / 2, room.end.y - 1)
+	@warning_ignore("integer_division")
+	return Vector2i(world.width / 2, world.surface_feet_row())
 
 
 # --- Player commands ---
 
 func hire_dwarf() -> Dwarf:
-	var room: Rect2i = WorldGenerator.entry_room_rect(config.world_gen)
 	var dwarf := Dwarf.new()
 	dwarf.id = dwarves.size()
 	dwarf.display_name = _next_name()
-	dwarf.pos = Vector2i(rng.randi_range(room.position.x, room.end.x - 1), room.end.y - 1)
+	dwarf.pos = _arrival_spot()
 	dwarf.from_pos = dwarf.pos
 	dwarf.facing = 1 if rng.randf() < 0.5 else -1
 	dwarf.think_ticks = rng.randi_range(0, config.think_ticks_max)
@@ -90,7 +156,7 @@ func mark_dig(rect: Rect2i, marked: bool) -> int:
 
 ## Marks or unmarks floor spots in the rect as stockpile. A floor spot is an open
 ## tile with solid ground under it; dragging over the ground itself marks the
-## spot on top of it. Returns how many changed.
+## spot on top of it. Spots inside a room are skipped. Returns how many changed.
 func mark_stockpile(rect: Rect2i, marked: bool) -> int:
 	var changed: int = 0
 	for y in range(rect.position.y, rect.end.y):
@@ -104,6 +170,8 @@ func mark_stockpile(rect: Rect2i, marked: bool) -> int:
 				continue
 			var tile := Vector2i(x, spot_y)
 			if marked:
+				if rooms.room_at(tile) != null:
+					continue
 				grid.set_flag(x, spot_y, TileGrid.FLAG_STOCKPILE, true)
 				storage.add_tile(tile)
 			else:
@@ -127,11 +195,10 @@ func mark_stairs(tiles: Array[Vector2i], marked: bool) -> int:
 			continue
 		grid.set_flag(tile.x, tile.y, TileGrid.FLAG_BUILD_MARK, marked)
 		if marked:
-			board.add_build(tile)
+			_stair_sites[tile] = add_site(tile, item_type(config.stair_item), config.stair_item_count, config.stair_build_ticks, "the stairs", null)
 		else:
-			var job: Job = board.build_job_at(tile)
-			if job != null:
-				board.remove(job)
+			cancel_site(_stair_sites[tile])
+			_stair_sites.erase(tile)
 		bounds = Rect2i(tile, Vector2i.ONE) if changed == 0 else bounds.expand(tile).expand(tile + Vector2i.ONE)
 		changed += 1
 	if changed > 0:
@@ -139,19 +206,85 @@ func mark_stairs(tiles: Array[Vector2i], marked: bool) -> int:
 	return changed
 
 
+func can_place_room(def: RoomDef, rect: Rect2i) -> bool:
+	return rooms.fit(grid, def, rect).size != Vector2i.ZERO
+
+
+## The space a room dragged over this rect would take, or an empty rect if it can't go there.
+func room_fit(def: RoomDef, rect: Rect2i) -> Rect2i:
+	return rooms.fit(grid, def, rect)
+
+
+## Gives a stretch of dug floor a purpose. Null if the room doesn't fit there.
+func place_room(def: RoomDef, rect: Rect2i) -> Room:
+	var room: Room = rooms.place(self, def, rect)
+	if room != null:
+		marks_changed.emit(room.rect)
+	return room
+
+
+## Removes every room touching the rect. Returns how many were removed.
+func remove_rooms(rect: Rect2i) -> int:
+	var found: Array[Room] = rooms.rooms_in(rect)
+	for room: Room in found:
+		rooms.remove(self, room)
+		marks_changed.emit(room.rect)
+	return found.size()
+
+
+# --- Build sites ---
+
+## Registers something to be built in place. Pass NO_ITEM for a site that needs
+## no materials.
+func add_site(tile: Vector2i, type: int, count: int, work_ticks: int, purpose: String, slot: RoomSlot) -> BuildSite:
+	var site := BuildSite.new()
+	site.tile = tile
+	site.work_ticks = work_ticks
+	site.slot = slot
+	if type != NO_ITEM and count > 0:
+		site.request = logistics.add(tile, type, count, purpose)
+	if work_ticks > 0:
+		site.job = board.add_build(site)
+	sites.append(site)
+	return site
+
+
+## Abandons a site. Materials already delivered drop to the floor.
+func cancel_site(site: BuildSite) -> void:
+	if site.done:
+		return
+	site.done = true
+	sites.erase(site)
+	if site.job != null:
+		board.remove(site.job)
+		site.job = null
+	if site.request != null:
+		spill(site.request.item_type, site.request.delivered, site.tile)
+		logistics.close(site.request)
+
+
+func complete_site(site: BuildSite) -> void:
+	if site.done:
+		return
+	site.done = true
+	sites.erase(site)
+	if site.job != null:
+		board.remove(site.job)
+		site.job = null
+	if site.request != null:
+		logistics.close(site.request)
+	if site.slot != null:
+		rooms.slot_built(self, site.slot)
+		return
+	grid.set_flag(site.tile.x, site.tile.y, TileGrid.FLAG_BUILD_MARK, false)
+	grid.set_structure(site.tile.x, site.tile.y, TileGrid.STRUCTURE_STAIR)
+	_stair_sites.erase(site.tile)
+	tile_changed.emit(site.tile.x, site.tile.y)
+
+
 # --- Used by DwarfDriver ---
 
-## Turns a planned stair tile into a built one.
-func complete_build(tile: Vector2i) -> void:
-	grid.set_flag(tile.x, tile.y, TileGrid.FLAG_BUILD_MARK, false)
-	grid.set_structure(tile.x, tile.y, TileGrid.STRUCTURE_STAIR)
-	var job: Job = board.build_job_at(tile)
-	if job != null:
-		board.remove(job)
-	tile_changed.emit(tile.x, tile.y)
-
-
-## Opens a dug tile and drops its resource ball.
+## Opens a dug tile and drops its item.
 func complete_dig(tile: Vector2i) -> void:
 	var material: int = grid.material_at(tile.x, tile.y)
 	grid.set_open(tile.x, tile.y)
@@ -165,24 +298,49 @@ func complete_dig(tile: Vector2i) -> void:
 			_unsettle(item)
 	if grid.is_stockpile(tile.x, tile.y - 1):
 		_remove_stockpile_tile(Vector2i(tile.x, tile.y - 1))
-	var def: MaterialDef = material_def(material)
-	var drop: int = material if def.drop == null else config.materials.find(def.drop)
-	spawn_item(drop, tile)
+	if _drop_type[material] != NO_ITEM:
+		spawn_item(_drop_type[material], tile)
 	tile_changed.emit(tile.x, tile.y)
 
 
-func spawn_item(material: int, pos: Vector2i) -> Item:
-	var item := Item.new()
-	item.id = _next_item_id
-	_next_item_id += 1
-	item.material = material
-	item.pos = pos
-	item.from_pos = pos
-	items[item.id] = item
+## Finishes the station's current order and puts the result on its output pile.
+func complete_craft(station: Station) -> void:
+	var output: int = item_type(station.recipe.output)
+	logistics.close(station.request)
+	station.request = null
+	station.recipe = null
+	if station.job != null:
+		board.remove(station.job)
+		station.job = null
+	if station.output == null or not storage.put(station.output, output):
+		spawn_item(output, station.tile)
+
+
+func complete_harvest(plant: Plant) -> void:
+	plants.harvest(plant, board)
+	spill(item_type(plant.def.yield_item), plant.def.yield_count, plant.tile)
+
+
+func spawn_item(type: int, pos: Vector2i) -> Item:
+	var item := _create_item(type, pos)
 	_unsettled.append(item)
 	board.add_haul(item)
-	items_version += 1
 	return item
+
+
+## Makes an item that is already in a dwarf's hands, taken from a pile.
+func create_carried_item(type: int, pos: Vector2i) -> Item:
+	var item := _create_item(type, pos)
+	item.state = Item.State.CARRIED
+	return item
+
+
+## Drops a number of loose items of one type on a tile.
+func spill(type: int, count: int, pos: Vector2i) -> void:
+	if type == NO_ITEM:
+		return
+	for n in count:
+		spawn_item(type, pos)
 
 
 func pick_up_item(item: Item) -> void:
@@ -197,10 +355,11 @@ func drop_item(item: Item, pos: Vector2i) -> void:
 	item.from_pos = pos
 	item.move_ticks_left = 0
 	_unsettle(item)
+	board.add_haul(item)
 	items_version += 1
 
 
-## Removes a ball for good, once it has gone into a pallet.
+## Removes an item for good, once it has gone into a pile or been used up.
 func remove_item(item: Item) -> void:
 	var job: Job = board.haul_job_for(item)
 	if job != null:
@@ -210,6 +369,18 @@ func remove_item(item: Item) -> void:
 
 
 # --- Internals ---
+
+func _create_item(type: int, pos: Vector2i) -> Item:
+	var item := Item.new()
+	item.id = _next_item_id
+	_next_item_id += 1
+	item.type = type
+	item.pos = pos
+	item.from_pos = pos
+	items[item.id] = item
+	items_version += 1
+	return item
+
 
 func _tick_items() -> void:
 	for i in range(_unsettled.size() - 1, -1, -1):
@@ -233,6 +404,14 @@ func _tick_items() -> void:
 			items_version += 1
 
 
+## Sites that need no work are done the moment their materials arrive.
+func _tick_sites() -> void:
+	for i in range(sites.size() - 1, -1, -1):
+		var site: BuildSite = sites[i]
+		if site.work_ticks == 0 and site.is_ready():
+			complete_site(site)
+
+
 func _unsettle(item: Item) -> void:
 	item.settled = false
 	if not _unsettled.has(item):
@@ -241,11 +420,53 @@ func _unsettle(item: Item) -> void:
 
 func _remove_stockpile_tile(tile: Vector2i) -> void:
 	grid.set_flag(tile.x, tile.y, TileGrid.FLAG_STOCKPILE, false)
-	var pallet: Pallet = storage.remove_tile(tile)
-	if pallet != null and pallet.placed:
-		for n in pallet.count:
-			spawn_item(pallet.material, tile)
+	var pile: Pile = storage.remove_tile(tile)
+	if pile != null:
+		for type: int in pile.counts:
+			spill(type, pile.counts[type], tile)
 	marks_changed.emit(Rect2i(tile, Vector2i.ONE))
+
+
+func _plant_trees() -> void:
+	var world: WorldGenConfig = config.world_gen
+	if world.tree == null or world.tree_count <= 0:
+		return
+	var feet: int = world.surface_feet_row()
+	@warning_ignore("integer_division")
+	var centre: int = world.width / 2
+	var columns: Array[int] = []
+	for attempt in world.tree_count * 20:
+		if columns.size() >= world.tree_count:
+			break
+		var x: int = rng.randi_range(2, world.width - 3)
+		if absi(x - centre) < world.tree_clearing:
+			continue
+		var crowded: bool = false
+		for other: int in columns:
+			if absi(x - other) < 3:
+				crowded = true
+		if crowded:
+			continue
+		columns.append(x)
+		@warning_ignore("integer_division")
+		plants.add(world.tree, Vector2i(x, feet), rng.randi_range(world.tree.grow_ticks / 2, world.tree.grow_ticks))
+
+
+func _place_supplies() -> void:
+	var type: int = item_type(config.starting_item)
+	if type == NO_ITEM or config.starting_item_count <= 0:
+		return
+	var pile: Pile = storage.add_pile(Pile.Kind.SUPPLY, spawn_point(), Pile.UNLIMITED)
+	for n in config.starting_item_count:
+		storage.put(pile, type)
+
+
+func _arrival_spot() -> Vector2i:
+	var world: WorldGenConfig = config.world_gen
+	if world.entry_room_width > 0:
+		var room: Rect2i = WorldGenerator.entry_room_rect(world)
+		return Vector2i(rng.randi_range(room.position.x, room.end.x - 1), room.end.y - 1)
+	return spawn_point() + Vector2i(rng.randi_range(-2, 2), 0)
 
 
 func _next_name() -> String:

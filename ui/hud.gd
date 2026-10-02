@@ -5,6 +5,8 @@ extends Control
 ## it never changes the sim or the window itself.
 
 signal tool_selected(tool: ToolController.Tool)
+## The player picked a type of room to place.
+signal room_tool_selected(def: RoomDef)
 signal hire_requested
 signal speed_selected(multiplier: float)
 signal reveal_toggled(enabled: bool)
@@ -14,6 +16,9 @@ signal layer_step_requested(direction: int)
 @onready var _dig_button: Button = $Bar/DigButton
 @onready var _stockpile_button: Button = $Bar/StockpileButton
 @onready var _stairs_button: Button = $Bar/StairsButton
+@onready var _room_button: Button = $Bar/RoomButton
+@onready var _room_panel: PanelContainer = $RoomPanel
+@onready var _room_row: HBoxContainer = $RoomPanel/Row
 @onready var _requests_button: Button = $Bar/RequestsButton
 @onready var _debug_button: Button = $Bar/DebugButton
 @onready var _totals: Label = $Bar/Totals
@@ -49,6 +54,7 @@ func _ready() -> void:
 	}
 	for tool: ToolController.Tool in _tool_buttons:
 		_tool_buttons[tool].toggled.connect(_on_tool_toggled.bind(tool))
+	_room_button.toggled.connect(_on_room_toggled)
 	_requests_button.toggled.connect(_on_panel_toggled.bind(_requests_panel, _debug_button))
 	_debug_button.toggled.connect(_on_panel_toggled.bind(_debug_panel, _requests_button))
 	_layer_up.pressed.connect(func() -> void: layer_step_requested.emit(-1))
@@ -70,6 +76,12 @@ func bind(sim: Simulation) -> void:
 	sim.requests.changed.connect(_refresh_requests)
 	sim.dwarf_hired.connect(func(_dwarf: Dwarf) -> void: _refresh_dwarf_count())
 	_clear_button.pressed.connect(sim.requests.clear)
+	for def: RoomDef in sim.config.rooms:
+		var button := Button.new()
+		button.text = def.display_name
+		button.tooltip_text = "At least %d wide and %d high. Drag over dug floor. Right-drag removes a room." % [def.min_width, def.min_height]
+		button.pressed.connect(_on_room_type_pressed.bind(def))
+		_room_row.add_child(button)
 	_refresh_totals()
 	_refresh_requests()
 	_refresh_dwarf_count()
@@ -100,6 +112,8 @@ func _on_tool_toggled(pressed: bool, tool: ToolController.Tool) -> void:
 		for other: ToolController.Tool in _tool_buttons:
 			if other != tool:
 				_tool_buttons[other].set_pressed_no_signal(false)
+		_room_button.set_pressed_no_signal(false)
+		_close_room_picker()
 		tool_selected.emit(tool)
 	else:
 		tool_selected.emit(ToolController.Tool.NONE)
@@ -108,7 +122,31 @@ func _on_tool_toggled(pressed: bool, tool: ToolController.Tool) -> void:
 func _on_panel_toggled(pressed: bool, panel: PanelContainer, other_button: Button) -> void:
 	if pressed:
 		other_button.button_pressed = false
+		_room_panel.visible = false
 	panel.visible = pressed
+
+
+## The Room button opens the picker; the tool only becomes active once a type is chosen.
+func _on_room_toggled(pressed: bool) -> void:
+	for tool: ToolController.Tool in _tool_buttons:
+		_tool_buttons[tool].set_pressed_no_signal(false)
+	tool_selected.emit(ToolController.Tool.NONE)
+	_close_room_picker()
+	if pressed:
+		_requests_button.button_pressed = false
+		_debug_button.button_pressed = false
+		_room_panel.visible = true
+
+
+func _on_room_type_pressed(def: RoomDef) -> void:
+	_room_panel.visible = false
+	_room_button.text = "Room: %s" % def.display_name
+	room_tool_selected.emit(def)
+
+
+func _close_room_picker() -> void:
+	_room_panel.visible = false
+	_room_button.text = "Room"
 
 
 func _on_speed_pressed(index: int) -> void:
@@ -119,10 +157,10 @@ func _on_speed_pressed(index: int) -> void:
 
 func _refresh_totals() -> void:
 	var parts := PackedStringArray()
-	for material in _sim.storage.totals.size():
-		var count: int = _sim.storage.totals[material]
+	for type in _sim.storage.totals.size():
+		var count: int = _sim.storage.totals[type]
 		if count > 0:
-			parts.append("%s %d" % [_sim.material_def(material).display_name, count])
+			parts.append("%s %d" % [_sim.item_def(type).display_name, count])
 	_totals.text = "Stored: nothing yet" if parts.is_empty() else "Stored: " + "  ".join(parts)
 
 

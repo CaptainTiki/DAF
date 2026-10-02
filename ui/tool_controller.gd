@@ -3,14 +3,18 @@ extends Node
 ## Turns mouse drags on the world into player commands for the active tool.
 ## Left drag marks; right drag (or Shift + drag) unmarks.
 
-enum Tool { NONE, DIG, STOCKPILE, STAIRS }
+enum Tool { NONE, DIG, STOCKPILE, STAIRS, ROOM }
 
 const DIG_COLOR := Color(1.0, 0.82, 0.2, 0.3)
 const STAIRS_COLOR := Color(0.4, 1.0, 0.5, 0.4)
 const STOCKPILE_COLOR := Color(0.3, 0.65, 1.0, 0.3)
 const UNMARK_COLOR := Color(1.0, 0.3, 0.25, 0.3)
+const INVALID_COLOR := Color(1.0, 0.15, 0.1, 0.45)
+const ROOM_PREVIEW_ALPHA: float = 0.4
 
 var tool: Tool = Tool.NONE: set = set_tool
+## The type of room the ROOM tool places.
+var room_def: RoomDef
 
 var _sim: Simulation
 var _view: WorldView
@@ -32,6 +36,12 @@ func set_tool(value: Tool) -> void:
 		return
 	_cancel_drag()
 	_view.camera.left_drag_pans = tool == Tool.NONE
+
+
+## Switches to the ROOM tool for one type of room.
+func set_room_tool(def: RoomDef) -> void:
+	room_def = def
+	set_tool(Tool.ROOM)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -67,22 +77,36 @@ func _apply() -> void:
 			_sim.mark_stockpile(_drag_rect(), not _unmark)
 		Tool.STAIRS:
 			_sim.mark_stairs(_drag_diagonal(), not _unmark)
+		Tool.ROOM:
+			if _unmark:
+				_sim.remove_rooms(_drag_rect())
+			elif room_def != null:
+				_sim.place_room(room_def, _drag_rect())
 
 
 func _show_preview() -> void:
-	var color: Color = UNMARK_COLOR
-	if not _unmark:
-		match tool:
-			Tool.DIG:
-				color = DIG_COLOR
-			Tool.STOCKPILE:
-				color = STOCKPILE_COLOR
-			Tool.STAIRS:
-				color = STAIRS_COLOR
-	if tool == Tool.STAIRS:
-		_view.show_tile_selection(_drag_diagonal(), color)
+	match tool:
+		Tool.STAIRS:
+			_view.show_tile_selection(_drag_diagonal(), UNMARK_COLOR if _unmark else STAIRS_COLOR)
+		Tool.ROOM:
+			_show_room_preview()
+		Tool.DIG:
+			_view.show_selection(_drag_rect(), UNMARK_COLOR if _unmark else DIG_COLOR)
+		Tool.STOCKPILE:
+			_view.show_selection(_drag_rect(), UNMARK_COLOR if _unmark else STOCKPILE_COLOR)
+
+
+## Shows the space the room would actually take, or the raw drag in red if it
+## doesn't fit there.
+func _show_room_preview() -> void:
+	if _unmark or room_def == null:
+		_view.show_selection(_drag_rect(), UNMARK_COLOR)
+		return
+	var fitted: Rect2i = _sim.room_fit(room_def, _drag_rect())
+	if fitted.size == Vector2i.ZERO:
+		_view.show_selection(_drag_rect(), INVALID_COLOR)
 	else:
-		_view.show_selection(_drag_rect(), color)
+		_view.show_selection(fitted, Color(room_def.color, ROOM_PREVIEW_ALPHA))
 
 
 func _cancel_drag() -> void:

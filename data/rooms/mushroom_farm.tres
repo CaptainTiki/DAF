@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="RoomDef" format=3]
+
+[ext_resource type="Script" path="res://simulizer/defs/room_def.gd" id="1_room"]
+[ext_resource type="Script" path="res://simulizer/defs/slot_def.gd" id="2_slot"]
+[ext_resource type="Resource" path="res://data/plants/mushroom_tree.tres" id="3_mushroom"]
+
+[sub_resource type="Resource" id="slot_plot"]
+script = ExtResource("2_slot")
+kind = 3
+offset = 0
+plant = ExtResource("3_mushroom")
+
+[resource]
+script = ExtResource("1_room")
+id = &"mushroom_farm"
+display_name = "Mushroom farm"
+category = &"farm"
+color = Color(0.4, 0.82, 0.5, 1)
+min_width = 2
+min_height = 3
+margin = 0
+pattern_width = 2
+slots = Array[ExtResource("2_slot")]([SubResource("slot_plot")])

@@ -59,6 +59,13 @@ func _apply() -> void:
 		push_warning("Window modes need the game in its own window. Turn off 'Embed Game on Next Play' in the editor's Game tab.")
 		return
 	var window: Window = get_window()
+	# The project stretches the UI with the window, which suits full screen. In
+	# the strip and corner that would shrink it to a fraction of its size, so
+	# there the UI keeps its real pixel size.
+	if mode == Mode.FULLSCREEN:
+		window.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
+	elif mode != Mode.TRAY:
+		window.content_scale_mode = Window.CONTENT_SCALE_MODE_DISABLED
 	match mode:
 		Mode.TRAY:
 			# Godot can't hide its main window, so minimise it; the tray icon brings it back.

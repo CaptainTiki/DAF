@@ -8,8 +8,14 @@ extends RefCounted
 ## dwarves walking past.
 
 const LANE_BACK_WALL: float = -2.0
+## Chair backs and benches stand against the back wall.
+const LANE_SEAT: float = -1.8
 const LANE_STRUCTURE: float = -1.6
+## A dwarf sitting on a chair: in front of the chair, behind the table.
+const LANE_SEATED: float = -1.5
 const LANE_PALLET: float = -1.3
+## Tables stand in front of whoever is sitting, behind whoever walks past.
+const LANE_TABLE: float = -1.15
 const LANE_ITEM: float = -1.0
 const LANE_DWARF: float = -0.5
 const LANE_SOLID: float = 0.0

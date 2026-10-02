@@ -17,18 +17,24 @@ const BOB_HEIGHT: float = 0.07
 const STAND_SPREAD: float = 0.6
 const GOLDEN_RATIO: float = 0.618034
 const STAIR_LANE: float = ViewSpace.LANE_STRUCTURE + 0.5
+## How far a sitting dwarf is lifted onto the chair.
+const SEAT_HEIGHT: float = 0.22
+## Turns the rig, which faces +X, towards the camera.
+const FACING_CAMERA := Basis(Vector3(0, 0, 1), Vector3(0, 1, 0), Vector3(-1, 0, 0))
 
 @onready var _rig: Node3D = $Rig
 @onready var _body: MeshInstance3D = $Rig/Body
 @onready var _beard: MeshInstance3D = $Rig/Beard
 @onready var _pick: Node3D = $Rig/PickPivot
-@onready var _carried: MeshInstance3D = $Rig/Carried
+@onready var _carried_ball: MeshInstance3D = $Rig/CarriedBall
+@onready var _carried_box: MeshInstance3D = $Rig/CarriedBox
 @onready var _progress: MeshInstance3D = $Progress
 
 var _dwarf: Dwarf
 var _carried_material := StandardMaterial3D.new()
-var _carried_item_material: int = -1
-var _at_rest: bool = false
+var _carried_type: int = -1
+## The activity the dwarf was last posed for while standing still, or -1.
+var _resting_as: int = -1
 ## Sideways standing position within the tile, in tiles.
 var _stand_offset: float = 0.0
 ## Where in the swing this dwarf starts, 0..1.
@@ -43,21 +49,23 @@ func bind(dwarf: Dwarf) -> void:
 	_body.material_override = _flat_material(TUNIC_COLORS[dwarf.id % TUNIC_COLORS.size()])
 	_beard.material_override = _flat_material(BEARD_COLORS[(dwarf.id * 7 + 3) % BEARD_COLORS.size()])
 	_carried_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_carried.material_override = _carried_material
-	_at_rest = false
+	_carried_ball.material_override = _carried_material
+	_carried_box.material_override = _carried_material
+	_resting_as = -1
 
 
 func refresh(sim: Simulation, alpha: float) -> void:
 	var moving: bool = _dwarf.move_ticks_left > 0
-	var digging: bool = _dwarf.activity == Dwarf.Activity.DIG or _dwarf.activity == Dwarf.Activity.BUILD
-	# A dwarf standing idle doesn't change, so leave the scene untouched and let
-	# the renderer skip the frame.
-	if not moving and not digging and _dwarf.carrying == null:
-		if _at_rest:
+	var working: bool = _dwarf.activity == Dwarf.Activity.WORK
+	var sitting: bool = _dwarf.activity == Dwarf.Activity.SIT
+	# A dwarf standing or sitting still doesn't change, so leave the scene
+	# untouched and let the renderer skip the frame.
+	if not moving and not working and _dwarf.carrying == null:
+		if _resting_as == _dwarf.activity:
 			return
-		_at_rest = true
+		_resting_as = _dwarf.activity
 	else:
-		_at_rest = false
+		_resting_as = -1
 
 	var fraction: float = _dwarf.move_fraction(alpha)
 	var tile: Vector2 = Vector2(_dwarf.from_pos).lerp(Vector2(_dwarf.pos), fraction)
@@ -65,15 +73,21 @@ func refresh(sim: Simulation, alpha: float) -> void:
 	var grid: TileGrid = sim.grid
 	var on_stairs: bool = grid.has_stair(_dwarf.pos.x, _dwarf.pos.y) or grid.has_stair(_dwarf.from_pos.x, _dwarf.from_pos.y)
 	var lane: float = STAIR_LANE if on_stairs else ViewSpace.LANE_DWARF
+	if sitting:
+		lane = ViewSpace.LANE_SEATED
 	var origin: Vector3 = ViewSpace.tile_floor(tile.x, tile.y, lane + (_dwarf.id % 8) * 0.01)
-	# Dwarves working from the same tile stand side by side, not inside each other.
-	origin.x += _stand_offset
+	if sitting:
+		origin.y += SEAT_HEIGHT
+		_rig.basis = FACING_CAMERA
+	else:
+		# Dwarves working from the same tile stand side by side, not inside each other.
+		origin.x += _stand_offset
+		_rig.basis = Basis.from_scale(Vector3(_dwarf.facing, 1.0, 1.0))
 	if moving and _dwarf.activity == Dwarf.Activity.WALK:
 		origin.y += absf(sin(fraction * PI)) * BOB_HEIGHT
 	position = origin
-	_rig.basis = Basis.from_scale(Vector3(_dwarf.facing, 1.0, 1.0))
 
-	if digging:
+	if working:
 		var swing_ticks: float = SWING_TICKS * _dwarf.pace
 		var swing: float = fmod(_dwarf.work_progress + alpha + _swing_phase * swing_ticks, swing_ticks) / swing_ticks
 		_pick.rotation.z = lerpf(0.7, -1.3, swing * swing)
@@ -85,11 +99,29 @@ func refresh(sim: Simulation, alpha: float) -> void:
 		_progress.visible = false
 
 	var item: Item = _dwarf.carrying
-	_pick.visible = item == null
-	_carried.visible = item != null
-	if item != null and item.material != _carried_item_material:
-		_carried_item_material = item.material
-		_carried_material.albedo_color = sim.material_def(item.material).color
+	_pick.visible = item == null and not sitting
+	if item == null:
+		_carried_ball.visible = false
+		_carried_box.visible = false
+		return
+	var def: ItemDef = sim.item_def(item.type)
+	var is_ball: bool = def.shape == ItemDef.Shape.BALL
+	_carried_ball.visible = is_ball
+	_carried_box.visible = not is_ball
+	if item.type != _carried_type:
+		_carried_type = item.type
+		_carried_material.albedo_color = def.color
+		_carried_box.scale = _carried_size(def.shape)
+
+
+## Rough size of a carried non-ball item, held in front of the dwarf.
+func _carried_size(shape: ItemDef.Shape) -> Vector3:
+	match shape:
+		ItemDef.Shape.LOG:
+			return Vector3(0.7, 0.24, 0.24)
+		ItemDef.Shape.TABLE:
+			return Vector3(0.9, 0.5, 0.3)
+	return Vector3(0.5, 0.7, 0.3)
 
 
 func _flat_material(color: Color) -> StandardMaterial3D:

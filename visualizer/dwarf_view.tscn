@@ -52,6 +52,8 @@ height = 0.4
 radial_segments = 10
 rings = 5
 
+[sub_resource type="BoxMesh" id="mesh_carried_box"]
+
 [sub_resource type="StandardMaterial3D" id="mat_progress"]
 shading_mode = 0
 albedo_color = Color(1, 0.95, 0.6, 1)
@@ -92,10 +94,15 @@ mesh = SubResource("mesh_handle")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
 mesh = SubResource("mesh_pick_head")
 
-[node name="Carried" type="MeshInstance3D" parent="Rig"]
+[node name="CarriedBall" type="MeshInstance3D" parent="Rig"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.32, 0.72, 0.3)
 visible = false
 mesh = SubResource("mesh_carried")
+
+[node name="CarriedBox" type="MeshInstance3D" parent="Rig"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.32, 0.8, 0.3)
+visible = false
+mesh = SubResource("mesh_carried_box")
 
 [node name="Progress" type="MeshInstance3D" parent="."]
 top_level = true

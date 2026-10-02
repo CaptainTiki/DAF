@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://simulizer/defs/item_def.gd" id="1_def"]
+
+[resource]
+script = ExtResource("1_def")
+id = &"wood"
+display_name = "Wood"
+color = Color(0.62, 0.42, 0.22, 1)
+size = 1
+shape = 1

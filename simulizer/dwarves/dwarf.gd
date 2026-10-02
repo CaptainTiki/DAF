@@ -2,7 +2,7 @@ class_name Dwarf
 extends RefCounted
 ## State of one dwarf. Behaviour lives in DwarfDriver.
 
-enum Activity { IDLE, WALK, DIG, FALL, BUILD }
+enum Activity { IDLE, WALK, WORK, FALL, SIT }
 
 var id: int
 var display_name: String
@@ -32,6 +32,10 @@ var carrying: Item
 var work_tile: Vector2i
 var work_progress: int = 0
 var work_total: int = 1
+
+## The seat this dwarf is sitting on or walking to, when taking a break.
+var seat: RoomSlot
+var sit_ticks_left: int = 0
 
 
 func move_fraction(alpha: float) -> float:
