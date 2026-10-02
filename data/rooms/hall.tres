@@ -11,6 +11,7 @@ kind = 0
 offset = 0
 item = ExtResource("3_chair")
 seat = true
+satisfies = &"dining"
 
 [sub_resource type="Resource" id="slot_table"]
 script = ExtResource("2_slot")

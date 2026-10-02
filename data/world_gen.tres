@@ -28,9 +28,9 @@ veins = Array[ExtResource("3_vein")]([SubResource("vein_topsoil_stone")])
 [sub_resource type="Resource" id="vein_upper_dirt"]
 script = ExtResource("3_vein")
 material = ExtResource("4_dirt")
-veins_per_thousand_tiles = 2.0
-min_size = 5
-max_size = 12
+veins_per_thousand_tiles = 3.0
+min_size = 6
+max_size = 16
 
 [sub_resource type="Resource" id="vein_upper_iron"]
 script = ExtResource("3_vein")
@@ -48,7 +48,7 @@ max_size = 14
 
 [sub_resource type="Resource" id="band_upper_rock"]
 script = ExtResource("2_band")
-start_depth = 0.05
+start_depth = 0.02
 base_material = ExtResource("5_stone")
 veins = Array[ExtResource("3_vein")]([SubResource("vein_upper_dirt"), SubResource("vein_upper_iron"), SubResource("vein_upper_copper")])
 
@@ -127,7 +127,7 @@ layer_count = 30
 layer_height = 4
 sky_rows = 8
 entry_room_width = 0
-band_jitter = 0.03
+band_jitter = 0.01
 tree = ExtResource("11_tree")
 tree_count = 8
 tree_clearing = 5

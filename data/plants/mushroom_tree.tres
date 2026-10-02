@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1_def")
 id = &"mushroom_tree"
-display_name = "Mushroom"
+display_name = "Mushroom tree"
 grow_ticks = 2400
 harvest_ticks = 80
 yield_item = ExtResource("2_wood")

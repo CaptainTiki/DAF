@@ -75,6 +75,16 @@ Judgment calls made while building, newest milestone first. Each entry says what
 - A dwarf with no bunk free says "tired!" and reports it in the requests log.
 - Mood is not shown anywhere yet, other than by what a dwarf says.
 
+### Food and drink
+- Two more needs, both data files: food (runs out in 12 minutes, eaten in 8 seconds) and drink (10 minutes, 6 seconds). Both are seen to at a dining seat: the hall's chairs.
+- A need that consumes something (a meal, an ale) is in play only once there is somewhere to sit and a station that can make it, or some already to hand.
+- A hungry dwarf fetches their own meal: they claim a seat, ask for a meal at it, go and get one from wherever it is (loose, a pile, the kitchen's output), carry it to the seat and eat it there. Nobody else fetches it for them, and the request is theirs alone.
+- If there is no meal anywhere they say so ("nothing to eat") and get on with work, hungry.
+- Kitchens cook to demand: every hungry dwarf who hasn't set off for a meal counts as wanting one, plus a stock of 2 kept ready (`stock_target`). The brewery works the same way for ale.
+- Two mushroom farms: the mushroom grove grows mushroom trees for wood; the mushroom patch grows cap mushrooms for food, two per plot every 90 seconds. A meal is 2 mushrooms at the kitchen; an ale is 2 mushrooms at the brewery.
+- The kitchen's stove costs 4 stone; the brewery's fermenter costs 4 wood.
+- Dirt is now the top 2 rows only, with pockets of dirt in the stone below.
+
 ### Dwarves speak
 - A dwarf has a `speech` string, drawn in a bubble over their head. For now the only thing said is "!".
 - An idle dwarf checks every 5 seconds whether they can still walk back to where the dwarves arrived. One who can't is trapped: they show "!" and post "I'm trapped! Build stairs to me." in the requests log. It clears once a way out exists.

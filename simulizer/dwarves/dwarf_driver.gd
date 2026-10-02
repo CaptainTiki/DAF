@@ -14,13 +14,12 @@ extends RefCounted
 ## Job score added per other dwarf using the same work spot. 1000 equals one step.
 const CROWDED_SPOT_PENALTY: int = 4000
 
-var _needs := DwarfNeeds.new()
 
 
 func tick(sim: Simulation, dwarf: Dwarf) -> void:
 	_act(sim, dwarf)
 	# After acting, so mood and speech match what the dwarf is doing this tick.
-	_needs.tick(sim, dwarf)
+	sim.needs.tick(sim, dwarf)
 
 
 func _act(sim: Simulation, dwarf: Dwarf) -> void:
@@ -193,23 +192,72 @@ func _tick_sit(sim: Simulation, dwarf: Dwarf) -> void:
 ## Sets off for somewhere to satisfy the most pressing need, if there is one
 ## and somewhere to go.
 func _try_satisfy_need(sim: Simulation, dwarf: Dwarf) -> bool:
-	var index: int = _needs.most_pressing(sim, dwarf)
+	var index: int = sim.needs.most_pressing(sim, dwarf)
 	if index < 0:
 		return false
 	var need: NeedDef = sim.config.needs[index]
 	var flood_map: FloodMap = Pathfinder.flood(sim.grid, dwarf.pos)
-	var slot: RoomSlot = sim.rooms.find_provider(need.id, dwarf.id, flood_map)
+	var slot: RoomSlot = sim.rooms.find_provider(need.provider, dwarf.id, flood_map, need.owned)
 	if slot == null:
 		sim.requests.post(StringName("no_%s" % need.id), dwarf.display_name, need.no_provider_message, sim.tick_count, sim.config.request_refresh_ticks)
 		return false
+	if need.consumes == null:
+		_leave_seat(dwarf)
+		_take_provider(dwarf, slot, index, need.owned)
+		dwarf.path = flood_map.path_to(slot.tile.x, slot.tile.y)
+		dwarf.activity = Dwarf.Activity.WALK
+		return true
+	# Something to fetch first: the nearest one, loose or in a pile.
+	var type: int = sim.item_type(need.consumes)
+	var source: Dictionary = _nearest_item(sim, flood_map, type)
+	if source.is_empty():
+		sim.requests.post(StringName("no_%s" % need.id), dwarf.display_name, need.no_item_message, sim.tick_count, sim.config.request_refresh_ticks)
+		return false
 	_leave_seat(dwarf)
-	slot.owner = dwarf.id
+	_take_provider(dwarf, slot, index, need.owned)
+	var request: Request = sim.logistics.add(slot.tile, type, 1, "%s's %s" % [dwarf.display_name, need.consumes.display_name.to_lower()])
+	request.owner_dwarf_id = dwarf.id
+	var trip: Job = source.get("job")
+	if trip == null:
+		trip = sim.board.make_haul_trip(source["pile"], type)
+		sim.storage.reserve_out(source["pile"], type)
+	trip.dest_request = request
+	request.incoming += 1
+	_start_job(sim, dwarf, trip, flood_map.path_to(source["spot"].x, source["spot"].y))
+	return true
+
+
+func _take_provider(dwarf: Dwarf, slot: RoomSlot, need_index: int, owned: bool) -> void:
+	if owned:
+		slot.owner = dwarf.id
 	slot.occupant = dwarf.id
 	dwarf.seat = slot
-	dwarf.restoring = index
-	dwarf.path = flood_map.path_to(slot.tile.x, slot.tile.y)
-	dwarf.activity = Dwarf.Activity.WALK
-	return true
+	dwarf.restoring = need_index
+
+
+## The nearest item of a type a dwarf could pick up: a loose one (with its haul
+## job) or one in a pile. Keys: "job" or "pile", and "spot" to stand at.
+## Empty if there is none in reach.
+func _nearest_item(sim: Simulation, flood_map: FloodMap, type: int) -> Dictionary:
+	var found: Dictionary = {}
+	var best_dist: int = 0
+	for job: Job in sim.board.jobs_of(Job.Kind.HAUL):
+		if job.item.type != type or not job.item.settled or not job.is_available(sim.tick_count):
+			continue
+		var spot: Vector2i = Pathfinder.best_access(flood_map, job.item.pos.x, job.item.pos.y, true)
+		if spot == Pathfinder.NO_SPOT:
+			continue
+		var dist: int = flood_map.distance_to(spot.x, spot.y)
+		if found.is_empty() or dist < best_dist:
+			found = {"job": job, "spot": spot}
+			best_dist = dist
+	var pile: Pile = sim.storage.find_source(type, flood_map)
+	if pile != null:
+		var spot: Vector2i = Pathfinder.best_access(flood_map, pile.tile.x, pile.tile.y, true)
+		var dist: int = flood_map.distance_to(spot.x, spot.y)
+		if found.is_empty() or dist < best_dist:
+			found = {"pile": pile, "spot": spot}
+	return found
 
 
 func _begin_rest(dwarf: Dwarf) -> bool:
@@ -389,7 +437,9 @@ func _is_held_for_another(sim: Simulation, dwarf: Dwarf, station: Station) -> bo
 
 
 func _start_job(sim: Simulation, dwarf: Dwarf, job: Job, path: Array[Vector2i]) -> void:
-	_leave_seat(dwarf)
+	# A dwarf fetching their own meal keeps their seat; anyone else gets up.
+	if dwarf.restoring < 0:
+		_leave_seat(dwarf)
 	# Check again as soon as this job is done, so the "!" clears promptly once
 	# there is a way out, and comes back if there still isn't.
 	dwarf.trapped_check_tick = 0
@@ -495,7 +545,7 @@ func _try_haul_for_requests(sim: Simulation, dwarf: Dwarf, flood_map: FloodMap, 
 	var best_dist: int = 0
 	var unmet: Request = null
 	for request: Request in candidates:
-		if request.open_count() <= 0:
+		if request.open_count() <= 0 or request.owner_dwarf_id != -1:
 			continue
 		if Pathfinder.best_access(flood_map, request.tile.x, request.tile.y, true) == Pathfinder.NO_SPOT:
 			continue
@@ -646,6 +696,9 @@ func _pick_up(sim: Simulation, dwarf: Dwarf, job: Job) -> void:
 	var target: Vector2i = _destination_tile(job)
 	var flood_map: FloodMap = Pathfinder.flood(sim.grid, dwarf.pos)
 	var spot: Vector2i = Pathfinder.best_access(flood_map, target.x, target.y, true)
+	if job.dest_request != null and job.dest_request.owner_dwarf_id == dwarf.id:
+		# Bringing it to their own seat: they have to be on the seat to use it.
+		spot = target if flood_map.is_reachable(target.x, target.y) else Pathfinder.NO_SPOT
 	if spot == Pathfinder.NO_SPOT:
 		_abandon_job(sim, dwarf, true)
 		return
@@ -661,9 +714,21 @@ func _deliver(sim: Simulation, dwarf: Dwarf, job: Job) -> void:
 	if target.x != dwarf.pos.x:
 		dwarf.facing = signi(target.x - dwarf.pos.x)
 	if job.dest_request != null:
-		job.dest_request.incoming = maxi(job.dest_request.incoming - 1, 0)
-		job.dest_request.delivered += 1
+		var request: Request = job.dest_request
+		request.incoming = maxi(request.incoming - 1, 0)
+		request.delivered += 1
 		job.dest_request = null
+		if request.owner_dwarf_id == dwarf.id:
+			# Their own meal: it is used up here and now.
+			sim.logistics.close(request)
+			sim.remove_item(dwarf.carrying)
+			dwarf.carrying = null
+			dwarf.job = null
+			if dwarf.seat != null and _begin_rest(dwarf):
+				return
+			_leave_seat(dwarf)
+			_go_idle(dwarf)
+			return
 	elif job.dest_pile.kind == Pile.Kind.DUMP:
 		sim.dumped += 1
 		job.dest_pile = null
@@ -700,6 +765,8 @@ func _abandon_job(sim: Simulation, dwarf: Dwarf, cooldown: bool) -> void:
 	if job != null:
 		if job.dest_request != null:
 			job.dest_request.incoming = maxi(job.dest_request.incoming - 1, 0)
+			if job.dest_request.owner_dwarf_id == dwarf.id:
+				sim.logistics.close(job.dest_request)
 			job.dest_request = null
 		if job.dest_pile != null:
 			if job.dest_pile.kind != Pile.Kind.DUMP:
@@ -720,7 +787,7 @@ func _abandon_job(sim: Simulation, dwarf: Dwarf, cooldown: bool) -> void:
 
 ## A duration adjusted for this dwarf's personal pace and their mood.
 func _paced(sim: Simulation, dwarf: Dwarf, ticks: int) -> int:
-	return maxi(1, roundi(ticks * dwarf.pace * _needs.pace_factor(sim, dwarf)))
+	return maxi(1, roundi(ticks * dwarf.pace * sim.needs.pace_factor(sim, dwarf)))
 
 
 ## How many other dwarves are at this spot or walking to it.

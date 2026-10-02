@@ -10,7 +10,7 @@ var _pending: Dictionary[RecipeDef, int] = {}
 func update(sim: Simulation) -> void:
 	for recipe: RecipeDef in sim.config.recipes:
 		var type: int = sim.item_type(recipe.output)
-		var wanted: int = sim.logistics.open_count_of(type)
+		var wanted: int = sim.logistics.open_count_of(type) + sim.needs.demand_for(sim, type)
 		var on_hand: int = sim.storage.available_total(type) + sim.loose_unassigned_count(type)
 		_pending[recipe] = maxi(wanted - on_hand - sim.rooms.in_production(recipe), 0)
 

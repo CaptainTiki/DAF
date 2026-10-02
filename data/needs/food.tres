@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="NeedDef" format=3]
+
+[ext_resource type="Script" path="res://simulizer/defs/need_def.gd" id="1_def"]
+[ext_resource type="Resource" path="res://data/items/meal.tres" id="2_meal"]
+
+[resource]
+script = ExtResource("1_def")
+id = &"food"
+display_name = "Food"
+decay_ticks = 14400
+restore_ticks = 160
+seek_below = 0.4
+provider = &"dining"
+owned = false
+consumes = ExtResource("2_meal")
+stock_target = 2
+no_item_message = "nothing to eat. Grow mushrooms and build a kitchen."
+using_speech = "nom"
+unmet_speech = "hungry!"
+no_provider_message = "nowhere to sit and eat. Build a hall."

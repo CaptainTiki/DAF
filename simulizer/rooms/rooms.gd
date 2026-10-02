@@ -166,6 +166,17 @@ func station_of(dwarf_id: int) -> Station:
 	return null
 
 
+## Whether a built station exists that can make this item type.
+func can_make(sim: Simulation, type: int) -> bool:
+	for recipe: RecipeDef in sim.config.recipes:
+		if sim.item_type(recipe.output) != type:
+			continue
+		for station: Station in stations:
+			if station.station_type == recipe.station_type:
+				return true
+	return false
+
+
 ## How many stations are currently working on this recipe.
 func in_production(recipe: RecipeDef) -> int:
 	var count: int = 0
@@ -187,21 +198,22 @@ func provider_count(need_id: StringName) -> int:
 	return _provider_counts.get(need_id, 0)
 
 
-## Somewhere this dwarf can satisfy a need: their own (a bed they have used
-## before) if it is free and in reach, otherwise the nearest one nobody owns.
-func find_provider(need_id: StringName, dwarf_id: int, flood_map: FloodMap) -> RoomSlot:
+## Somewhere this dwarf can satisfy a need. With `owned`, their own (a bed they
+## have used before) if it is free and in reach, otherwise the nearest one
+## nobody owns. Without, simply the nearest free one.
+func find_provider(provider: StringName, dwarf_id: int, flood_map: FloodMap, owned: bool) -> RoomSlot:
 	var best: RoomSlot = null
 	var best_dist: int = 0
 	for room: Room in rooms:
 		for slot: RoomSlot in room.slots:
-			if slot.def.satisfies != need_id or not slot.built or slot.occupant != -1:
+			if slot.def.satisfies != provider or not slot.built or slot.occupant != -1:
 				continue
-			if slot.owner != -1 and slot.owner != dwarf_id:
+			if owned and slot.owner != -1 and slot.owner != dwarf_id:
 				continue
 			var dist: int = flood_map.distance_to(slot.tile.x, slot.tile.y)
 			if dist < 0:
 				continue
-			if slot.owner == dwarf_id:
+			if owned and slot.owner == dwarf_id:
 				return slot
 			if best == null or dist < best_dist:
 				best = slot

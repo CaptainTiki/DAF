@@ -25,6 +25,7 @@ var rooms := Rooms.new()
 var plants := Plants.new()
 var orders := Orders.new()
 var scaffolds := Scaffolder.new()
+var needs := DwarfNeeds.new()
 var requests := RequestLog.new()
 var dwarves: Array[Dwarf] = []
 var items: Dictionary[int, Item] = {}

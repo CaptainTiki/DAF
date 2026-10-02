@@ -18,14 +18,18 @@ const WOOD: int = 2
 const CHAIR: int = 3
 const TABLE: int = 4
 const BED: int = 5
+const MUSHROOM: int = 6
+const MEAL: int = 7
 
 # Room type indices in config.rooms.
 const CARPENTRY: int = 0
 const HALL: int = 1
 const BUNK_ROOM: int = 2
+const KITCHEN: int = 3
 
 # Need indices.
 const SLEEP: int = 0
+const FOOD: int = 1
 
 
 static func make_config() -> SimConfig:
@@ -35,6 +39,8 @@ static func make_config() -> SimConfig:
 	var chair := _item(&"chair", "Chair", 3, ItemDef.Shape.CHAIR)
 	var table := _item(&"table", "Table", 5, ItemDef.Shape.TABLE)
 	var bed := _item(&"bed", "Bunk", 5, ItemDef.Shape.BED)
+	var mushroom := _item(&"mushroom", "Mushroom", 1, ItemDef.Shape.BALL)
+	var meal := _item(&"meal", "Meal", 1, ItemDef.Shape.BALL)
 
 	var dirt := MaterialDef.new()
 	dirt.id = &"dirt"
@@ -61,10 +67,10 @@ static func make_config() -> SimConfig:
 
 	var config := SimConfig.new()
 	config.materials = [dirt, stone]
-	config.items = [dirt_ball, stone_ball, wood, chair, table, bed]
-	config.recipes = [_recipe(wood, 1, chair, 10), _recipe(wood, 2, table, 10), _recipe(wood, 2, bed, 10)]
-	config.rooms = [make_carpentry(wood), make_hall(chair, table), make_bunk_room(bed)]
-	config.needs = [make_sleep_need()]
+	config.items = [dirt_ball, stone_ball, wood, chair, table, bed, mushroom, meal]
+	config.recipes = [_recipe(wood, 1, chair, 10), _recipe(wood, 2, table, 10), _recipe(wood, 2, bed, 10), _recipe(mushroom, 2, meal, 10, &"cooking")]
+	config.rooms = [make_carpentry(wood), make_hall(chair, table), make_bunk_room(bed), make_kitchen(wood)]
+	config.needs = [make_sleep_need(), make_food_need(meal)]
 	config.world_gen = world
 	config.starting_item = null
 	config.structure_item = null
@@ -137,6 +143,7 @@ static func make_hall(chair: ItemDef, table: ItemDef) -> RoomDef:
 	var chair_slot := SlotDef.new()
 	chair_slot.item = chair
 	chair_slot.seat = true
+	chair_slot.satisfies = &"dining"
 	var table_slot := SlotDef.new()
 	table_slot.item = table
 	var def := RoomDef.new()
@@ -171,7 +178,37 @@ static func make_sleep_need() -> NeedDef:
 	need.decay_ticks = 200
 	need.restore_ticks = 50
 	need.seek_below = 0.35
+	need.provider = &"sleep"
+	need.owned = true
 	return need
+
+
+## Food, sped up: runs out in 300 ticks, eaten in 20, sought below 40%.
+## Satisfied by fetching a meal to a dining seat. One meal is kept in stock.
+static func make_food_need(meal: ItemDef) -> NeedDef:
+	var need := NeedDef.new()
+	need.id = &"food"
+	need.display_name = "Food"
+	need.decay_ticks = 300
+	need.restore_ticks = 20
+	need.seek_below = 0.4
+	need.provider = &"dining"
+	need.consumes = meal
+	need.stock_target = 1
+	need.using_speech = "nom"
+	need.unmet_speech = "hungry!"
+	need.no_item_message = "nothing to eat."
+	need.no_provider_message = "nowhere to eat."
+	return need
+
+
+## A kitchen: a 3-wide stove (2 wood, built in place) and an output pile.
+static func make_kitchen(wood: ItemDef) -> RoomDef:
+	var def: RoomDef = make_carpentry(wood)
+	def.id = &"kitchen"
+	def.display_name = "Kitchen"
+	(def.slots[0] as SlotDef).station_type = &"cooking"
+	return def
 
 
 static func _item(id: StringName, display_name: String, size: int, shape: ItemDef.Shape) -> ItemDef:
@@ -183,9 +220,9 @@ static func _item(id: StringName, display_name: String, size: int, shape: ItemDe
 	return item
 
 
-static func _recipe(input: ItemDef, input_count: int, output: ItemDef, work_ticks: int) -> RecipeDef:
+static func _recipe(input: ItemDef, input_count: int, output: ItemDef, work_ticks: int, station_type: StringName = &"carpentry") -> RecipeDef:
 	var recipe := RecipeDef.new()
-	recipe.station_type = &"carpentry"
+	recipe.station_type = station_type
 	recipe.input = input
 	recipe.input_count = input_count
 	recipe.output = output

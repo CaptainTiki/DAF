@@ -69,7 +69,11 @@ func refresh(sim: Simulation, alpha: float) -> void:
 	var moving: bool = _dwarf.move_ticks_left > 0
 	var working: bool = _dwarf.activity == Dwarf.Activity.WORK
 	var sitting: bool = _dwarf.activity == Dwarf.Activity.SIT
-	var resting: bool = _dwarf.activity == Dwarf.Activity.REST
+	# Resting on a bunk means lying down; resting on a chair (eating, drinking) is sitting.
+	var on_seat: bool = _dwarf.seat != null and _dwarf.seat.def.seat
+	var resting: bool = _dwarf.activity == Dwarf.Activity.REST and not on_seat
+	if _dwarf.activity == Dwarf.Activity.REST and on_seat:
+		sitting = true
 	# A dwarf standing or sitting still doesn't change, so leave the scene
 	# untouched and let the renderer skip the frame.
 	if not moving and not working and _dwarf.carrying == null:

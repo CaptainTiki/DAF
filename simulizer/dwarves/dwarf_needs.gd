@@ -47,9 +47,31 @@ func tick(sim: Simulation, dwarf: Dwarf) -> void:
 		dwarf.speech = ""
 
 
-## A need is in play once something in the hold can satisfy it.
+## A need is in play once the hold has somewhere to see to it and, if it
+## consumes something, a way to make that or some already to hand.
 func is_active(sim: Simulation, need: NeedDef) -> bool:
-	return sim.rooms.provider_count(need.id) > 0
+	if sim.rooms.provider_count(need.provider) == 0:
+		return false
+	if need.consumes == null:
+		return true
+	var type: int = sim.item_type(need.consumes)
+	return sim.rooms.can_make(sim, type) or sim.storage.available_total(type) > 0 or sim.loose_unassigned_count(type) > 0
+
+
+## How many of an item type dwarves are about to want for a need: those who
+## need it and haven't set off for one yet, plus the stock kept ready.
+func demand_for(sim: Simulation, type: int) -> int:
+	var total: int = 0
+	var needs: Array[NeedDef] = sim.config.needs
+	for i in needs.size():
+		var need: NeedDef = needs[i]
+		if need.consumes == null or sim.item_type(need.consumes) != type or not is_active(sim, need):
+			continue
+		total += need.stock_target
+		for dwarf: Dwarf in sim.dwarves:
+			if dwarf.needs[i] < need.seek_below and dwarf.restoring != i:
+				total += 1
+	return total
 
 
 ## Index of the need this dwarf should go and see to now, or -1.

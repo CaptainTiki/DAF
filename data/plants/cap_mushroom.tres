@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="PlantDef" format=3]
+
+[ext_resource type="Script" path="res://simulizer/defs/plant_def.gd" id="1_def"]
+[ext_resource type="Resource" path="res://data/items/mushroom.tres" id="2_mushroom"]
+
+[resource]
+script = ExtResource("1_def")
+id = &"cap_mushroom"
+display_name = "Cap mushroom"
+grow_ticks = 1800
+harvest_ticks = 40
+yield_item = ExtResource("2_mushroom")
+yield_count = 2
+height = 0.7
+stem_color = Color(0.92, 0.88, 0.78, 1)
+cap_color = Color(0.8, 0.72, 0.5, 1)
+cap_size = Vector2(0.7, 0.3)
