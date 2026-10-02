@@ -49,7 +49,18 @@ static func add_plant(batch: BoxBatch, def: PlantDef, growth: float, base: Vecto
 	var stem_color := Color(def.stem_color, alpha)
 	var cap_color := Color(def.cap_color, alpha)
 	_box(batch, base, Vector3(0.0, stem_height * 0.5, 0.0), Vector3(0.22 * maxf(grown, 0.5), stem_height, 0.22), stem_color, 1.0)
-	_box(batch, base, Vector3(0.0, stem_height + cap.y * 0.25, 0.0), Vector3(cap.x, cap.y, 0.5), cap_color, 1.0)
+	var cap_centre := Vector3(0.0, stem_height + cap.y * 0.25, 0.0)
+	_box(batch, base, cap_centre, Vector3(cap.x, cap.y, 0.5), cap_color, 1.0)
+	if growth < 1.0:
+		return
+	# Ready for harvest: tufts break the square outline, so a ripe plant can be
+	# told from a nearly grown one at a glance.
+	var tuft_color: Color = cap_color.lightened(0.25)
+	var tuft := Vector3(cap.x * 0.3, cap.y * 0.4, 0.5)
+	var reach: float = cap.x * 0.5 + tuft.x * 0.3
+	_box(batch, base, cap_centre + Vector3(-reach, cap.y * 0.15, 0.05), tuft, tuft_color, 1.0)
+	_box(batch, base, cap_centre + Vector3(reach, -cap.y * 0.12, 0.05), tuft, tuft_color, 1.0)
+	_box(batch, base, cap_centre + Vector3(cap.x * 0.12, cap.y * 0.5 + tuft.y * 0.3, 0.05), Vector3(cap.x * 0.4, tuft.y, 0.5), tuft_color, 1.0)
 
 
 static func _box(batch: BoxBatch, base: Vector3, offset: Vector3, size: Vector3, color: Color, scale: float) -> void:
