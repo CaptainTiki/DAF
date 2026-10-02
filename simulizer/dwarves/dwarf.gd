@@ -45,8 +45,13 @@ var trapped_check_tick: int = 0
 var needs: PackedFloat32Array
 ## Bad slows the dwarf down, good speeds them up.
 var mood: Mood = Mood.OK
+## How well each need was last met: -1 poorly (the floor), 0 plainly, 1 well.
+## Together with needs that have run out, this is what mood is made of.
+var need_quality: PackedInt32Array
 ## Index of the need being seen to, while walking to or using something for it. -1 if none.
 var restoring: int = -1
+## How well the need being seen to will have been met, once it is.
+var restoring_quality: int = 0
 
 ## The seat or bed this dwarf is using or walking to.
 var seat: RoomSlot

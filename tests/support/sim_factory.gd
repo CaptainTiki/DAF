@@ -41,6 +41,7 @@ static func make_config() -> SimConfig:
 	var bed := _item(&"bed", "Bunk", 5, ItemDef.Shape.BED)
 	var mushroom := _item(&"mushroom", "Mushroom", 1, ItemDef.Shape.BALL)
 	var meal := _item(&"meal", "Meal", 1, ItemDef.Shape.BALL)
+	meal.quality = 1
 
 	var dirt := MaterialDef.new()
 	dirt.id = &"dirt"
@@ -70,7 +71,7 @@ static func make_config() -> SimConfig:
 	config.items = [dirt_ball, stone_ball, wood, chair, table, bed, mushroom, meal]
 	config.recipes = [_recipe(wood, 1, chair, 10), _recipe(wood, 2, table, 10), _recipe(wood, 2, bed, 10), _recipe(mushroom, 2, meal, 10, &"cooking")]
 	config.rooms = [make_carpentry(wood), make_hall(chair, table), make_bunk_room(bed), make_kitchen(wood)]
-	config.needs = [make_sleep_need(), make_food_need(meal)]
+	config.needs = [make_sleep_need(), make_food_need(meal, mushroom)]
 	config.world_gen = world
 	config.starting_item = null
 	config.structure_item = null
@@ -170,12 +171,22 @@ static func make_bunk_room(bed: ItemDef) -> RoomDef:
 	return def
 
 
-## Sleep, sped up: runs out in 200 ticks, restored in 50, sought below 35%.
+## Needs in the test world run down so slowly they never matter unless a test
+## calls hurry_needs(). Then sleep runs out in 200 ticks and food in 300.
+const SLOW: int = 100000000
+
+
+static func hurry_needs(config: SimConfig) -> void:
+	config.needs[SLEEP].decay_ticks = 200
+	config.needs[FOOD].decay_ticks = 300
+
+
+## Sleep: restored in 50 ticks, sought below 35%.
 static func make_sleep_need() -> NeedDef:
 	var need := NeedDef.new()
 	need.id = &"sleep"
 	need.display_name = "Sleep"
-	need.decay_ticks = 200
+	need.decay_ticks = SLOW
 	need.restore_ticks = 50
 	need.seek_below = 0.35
 	need.provider = &"sleep"
@@ -183,22 +194,22 @@ static func make_sleep_need() -> NeedDef:
 	return need
 
 
-## Food, sped up: runs out in 300 ticks, eaten in 20, sought below 40%.
-## Satisfied by fetching a meal to a dining seat. One meal is kept in stock.
-static func make_food_need(meal: ItemDef) -> NeedDef:
+## Food: eaten in 20 ticks, sought below 40%. Satisfied by fetching a meal (or,
+## failing that, a raw mushroom) to a dining seat. One meal is kept in stock.
+static func make_food_need(meal: ItemDef, mushroom: ItemDef) -> NeedDef:
 	var need := NeedDef.new()
 	need.id = &"food"
 	need.display_name = "Food"
-	need.decay_ticks = 300
+	need.decay_ticks = SLOW
 	need.restore_ticks = 20
 	need.seek_below = 0.4
 	need.provider = &"dining"
-	need.consumes = meal
+	need.consumes = [meal, mushroom]
 	need.stock_target = 1
 	need.using_speech = "nom"
 	need.unmet_speech = "hungry!"
 	need.no_item_message = "nothing to eat."
-	need.no_provider_message = "nowhere to eat."
+	need.no_provider_message = "nowhere to eat. Eating on the floor."
 	return need
 
 

@@ -65,11 +65,13 @@ Judgment calls made while building, newest milestone first. Each entry says what
 
 ### Needs and mood
 - A need is data (`NeedDef`): how fast it runs down, how fast it is restored, when a dwarf goes to see to it, and what they say. Sleep is the only one so far.
-- A need is asleep until something in the hold can satisfy it. With no bunk built, nobody gets tired. This replaces any "turn needs on" switch.
+- Needs are always in play from the first minute. What the hold provides decides how well they are met, not whether they count. (An earlier version woke a need only once the hold could satisfy it; that was dropped because building the base in time is the game.)
 - A room slot says which need it satisfies (`satisfies` on the slot). A bunk satisfies sleep.
 - Sleep runs out in 8 minutes and is restored in 1. A dwarf goes to bed between jobs once it drops below 35%. A sleeping dwarf does not get up for work.
 - A bunk belongs to the first dwarf who uses it, and they go back to the same one.
-- Mood has three levels. Bad: some need has run out. Good: a need is in play and all are above half. Ok: otherwise, including a hold with no needs in play.
+- Mood is a sum over needs. Each counts how well it was last met: -1 for making do on the floor, 0 for plain fare, +1 for a bunk or a proper meal at a table. A need that has run out counts -2, so going without is worse than making do. Below zero is bad, above zero good, zero is ok. Everyone starts at ok.
+- With no bunk a dwarf sleeps on the floor where they stand (-1). With no seat a dwarf eats where they pick the food up (one worse than at a table). A raw mushroom at a table is plain (0); a cooked meal at a table is good (+1); a raw mushroom on the floor is poor (-1).
+- Item quality is a number on the item (-1, 0, 1). A need lists what it can be met with, best first; stations are asked to make the first.
 - Bad mood makes walking and working take 30% longer; good mood 15% less (`bad_mood_pace`, `good_mood_pace`).
 - There is no death, no arrivals and no hunger, drink or fun yet.
 - A dwarf with no bunk free says "tired!" and reports it in the requests log.
@@ -77,9 +79,8 @@ Judgment calls made while building, newest milestone first. Each entry says what
 
 ### Food and drink
 - Two more needs, both data files: food (runs out in 12 minutes, eaten in 8 seconds) and drink (10 minutes, 6 seconds). Both are seen to at a dining seat: the hall's chairs.
-- A need that consumes something (a meal, an ale) is in play only once there is somewhere to sit and a station that can make it, or some already to hand.
 - A hungry dwarf fetches their own meal: they claim a seat, ask for a meal at it, go and get one from wherever it is (loose, a pile, the kitchen's output), carry it to the seat and eat it there. Nobody else fetches it for them, and the request is theirs alone.
-- If there is no meal anywhere they say so ("nothing to eat") and get on with work, hungry.
+- If there is no meal anywhere they say so ("nothing to eat") and get on with work, hungry. If there is one but no seat, they eat it on the floor.
 - Kitchens cook to demand: every hungry dwarf who hasn't set off for a meal counts as wanting one, plus a stock of 2 kept ready (`stock_target`). The brewery works the same way for ale.
 - Two mushroom farms: the mushroom grove grows mushroom trees for wood; the mushroom patch grows cap mushrooms for food, two per plot every 90 seconds. A meal is 2 mushrooms at the kitchen; an ale is 2 mushrooms at the brewery.
 - The kitchen's stove costs 4 stone; the brewery's fermenter costs 4 wood.

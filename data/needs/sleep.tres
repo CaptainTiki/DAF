@@ -13,4 +13,4 @@ provider = &"sleep"
 owned = true
 using_speech = "Zzz"
 unmet_speech = "tired!"
-no_provider_message = "no free bunk. Build more bunks."
+no_provider_message = "no free bunk. Sleeping on the floor."

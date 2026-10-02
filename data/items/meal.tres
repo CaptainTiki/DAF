@@ -9,3 +9,4 @@ display_name = "Meal"
 color = Color(0.78, 0.55, 0.3, 1)
 size = 1
 shape = 0
+quality = 1

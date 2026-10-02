@@ -199,23 +199,44 @@ func _try_satisfy_need(sim: Simulation, dwarf: Dwarf) -> bool:
 	var flood_map: FloodMap = Pathfinder.flood(sim.grid, dwarf.pos)
 	var slot: RoomSlot = sim.rooms.find_provider(need.provider, dwarf.id, flood_map, need.owned)
 	if slot == null:
-		sim.requests.post(StringName("no_%s" % need.id), dwarf.display_name, need.no_provider_message, sim.tick_count, sim.config.request_refresh_ticks)
-		return false
-	if need.consumes == null:
+		sim.requests.post(StringName("no_%s_place" % need.id), dwarf.display_name, need.no_provider_message, sim.tick_count, sim.config.request_refresh_ticks)
+	if need.consumes.is_empty():
 		_leave_seat(dwarf)
+		if slot == null:
+			# Nowhere to go: make do right here, on the floor.
+			dwarf.restoring = index
+			dwarf.restoring_quality = -1
+			_begin_rest(dwarf)
+			return true
 		_take_provider(dwarf, slot, index, need.owned)
+		dwarf.restoring_quality = 1
 		dwarf.path = flood_map.path_to(slot.tile.x, slot.tile.y)
 		dwarf.activity = Dwarf.Activity.WALK
 		return true
-	# Something to fetch first: the nearest one, loose or in a pile.
-	var type: int = sim.item_type(need.consumes)
-	var source: Dictionary = _nearest_item(sim, flood_map, type)
+	# Something to fetch first: the best thing there is, nearest one of it.
+	var type: int = Simulation.NO_ITEM
+	var source: Dictionary = {}
+	for item: ItemDef in need.consumes:
+		type = sim.item_type(item)
+		source = _nearest_item(sim, flood_map, type)
+		if not source.is_empty():
+			break
 	if source.is_empty():
 		sim.requests.post(StringName("no_%s" % need.id), dwarf.display_name, need.no_item_message, sim.tick_count, sim.config.request_refresh_ticks)
 		return false
 	_leave_seat(dwarf)
-	_take_provider(dwarf, slot, index, need.owned)
-	var request: Request = sim.logistics.add(slot.tile, type, 1, "%s's %s" % [dwarf.display_name, need.consumes.display_name.to_lower()])
+	var quality: int = sim.item_def(type).quality
+	var where: Vector2i
+	if slot == null:
+		# Eaten where it is picked up, which is worse than at a table.
+		quality = maxi(quality - 1, -1)
+		where = source["spot"]
+		dwarf.restoring = index
+	else:
+		_take_provider(dwarf, slot, index, need.owned)
+		where = slot.tile
+	dwarf.restoring_quality = quality
+	var request: Request = sim.logistics.add(where, type, 1, "%s's %s" % [dwarf.display_name, sim.item_def(type).display_name.to_lower()])
 	request.owner_dwarf_id = dwarf.id
 	var trip: Job = source.get("job")
 	if trip == null:
@@ -260,12 +281,16 @@ func _nearest_item(sim: Simulation, flood_map: FloodMap, type: int) -> Dictionar
 	return found
 
 
+## Starts seeing to the need where the dwarf is: on their seat or bunk if they
+## have one, otherwise on the floor.
 func _begin_rest(dwarf: Dwarf) -> bool:
 	var slot: RoomSlot = dwarf.seat
-	if slot.room.removed or not slot.built or slot.occupant != dwarf.id or dwarf.pos != slot.tile:
+	if slot != null and (slot.room.removed or not slot.built or slot.occupant != dwarf.id or dwarf.pos != slot.tile):
 		return false
+	dwarf.need_quality[dwarf.restoring] = dwarf.restoring_quality
 	dwarf.activity = Dwarf.Activity.REST
 	dwarf.from_pos = dwarf.pos
+	dwarf.path.clear()
 	return true
 
 
@@ -273,7 +298,7 @@ func _begin_rest(dwarf: Dwarf) -> bool:
 ## not get up for work.
 func _tick_rest(sim: Simulation, dwarf: Dwarf) -> void:
 	var slot: RoomSlot = dwarf.seat
-	if slot == null or slot.room.removed or dwarf.restoring < 0:
+	if dwarf.restoring < 0 or (slot != null and slot.room.removed):
 		_leave_seat(dwarf)
 		_go_idle(dwarf)
 		return
@@ -724,7 +749,7 @@ func _deliver(sim: Simulation, dwarf: Dwarf, job: Job) -> void:
 			sim.remove_item(dwarf.carrying)
 			dwarf.carrying = null
 			dwarf.job = null
-			if dwarf.seat != null and _begin_rest(dwarf):
+			if _begin_rest(dwarf):
 				return
 			_leave_seat(dwarf)
 			_go_idle(dwarf)

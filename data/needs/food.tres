@@ -2,6 +2,8 @@
 
 [ext_resource type="Script" path="res://simulizer/defs/need_def.gd" id="1_def"]
 [ext_resource type="Resource" path="res://data/items/meal.tres" id="2_meal"]
+[ext_resource type="Resource" path="res://data/items/mushroom.tres" id="3_mushroom"]
+[ext_resource type="Script" path="res://simulizer/defs/item_def.gd" id="4_item"]
 
 [resource]
 script = ExtResource("1_def")
@@ -12,9 +14,9 @@ restore_ticks = 160
 seek_below = 0.4
 provider = &"dining"
 owned = false
-consumes = ExtResource("2_meal")
+consumes = Array[ExtResource("4_item")]([ExtResource("2_meal"), ExtResource("3_mushroom")])
 stock_target = 2
 no_item_message = "nothing to eat. Grow mushrooms and build a kitchen."
 using_speech = "nom"
 unmet_speech = "hungry!"
-no_provider_message = "nowhere to sit and eat. Build a hall."
+no_provider_message = "nowhere to sit and eat. Eating on the floor."

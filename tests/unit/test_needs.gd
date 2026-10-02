@@ -16,6 +16,9 @@ func before_each() -> void:
 
 
 func _start(config: SimConfig) -> void:
+	SimFactory.hurry_needs(config)
+	# Only sleep is under test here; food is kept out of the way.
+	config.needs[SimFactory.FOOD].decay_ticks = SimFactory.SLOW
 	_sim = SimFactory.make_sim(config)
 	SimFactory.carve(_sim, Rect2i(1, 4, 22, 3))
 	_bunks = _sim.config.rooms[SimFactory.BUNK_ROOM]
@@ -38,16 +41,30 @@ func test_bunk_room_wants_a_bunk_on_every_tile() -> void:
 	assert_eq(room.slots[0].tile, Vector2i(3, 6))
 
 
-func test_sleep_does_not_run_down_until_there_is_a_bunk() -> void:
-	SimFactory.run(_sim, 600)
-	assert_eq(_dwarf.needs[SimFactory.SLEEP], 1.0)
+func test_without_a_bunk_a_dwarf_sleeps_on_the_floor_and_is_unhappy() -> void:
+	# Food is left out of it: a meal is on hand to keep that need neutral.
+	_sim.storage.put(_sim.storage.add_pile(Pile.Kind.SUPPLY, Vector2i(2, 6), Pile.UNLIMITED), SimFactory.MEAL)
 	assert_eq(_dwarf.mood, Dwarf.Mood.OK)
-	assert_eq(_dwarf.speech, "")
-
-	# A planned bunk that isn't built yet doesn't count either.
-	_sim.place_room(_bunks, Rect2i(3, 6, 2, 1))
-	SimFactory.run(_sim, 300)
-	assert_eq(_dwarf.needs[SimFactory.SLEEP], 1.0)
+	var slept_at: Vector2i = Vector2i(-1, -1)
+	for i in 300:
+		_sim.tick()
+		if _dwarf.activity == Dwarf.Activity.REST and _dwarf.restoring == SimFactory.SLEEP:
+			slept_at = _dwarf.pos
+			assert_eq(_dwarf.speech, "Zzz")
+			break
+	assert_ne(slept_at, Vector2i(-1, -1), "slept")
+	assert_null(_dwarf.seat, "on the floor, right where they were")
+	for i in 100:
+		_sim.tick()
+		if _dwarf.activity != Dwarf.Activity.REST:
+			break
+	assert_gt(_dwarf.needs[SimFactory.SLEEP], 0.9, "rested all the same")
+	assert_eq(_dwarf.need_quality[SimFactory.SLEEP], -1)
+	assert_eq(_dwarf.mood, Dwarf.Mood.BAD, "but in a bad mood about it")
+	var reported: bool = false
+	for entry: RequestEntry in _sim.requests.entries:
+		reported = reported or entry.message.contains("Sleeping on the floor")
+	assert_true(reported)
 
 
 func test_tired_dwarf_goes_to_bed_sleeps_and_gets_up() -> void:
@@ -108,19 +125,17 @@ func test_mood_is_good_when_rested_and_bad_when_sleep_runs_out() -> void:
 	var other := _sim.hire_dwarf()
 	SimFactory.place_dwarf(other, Vector2i(12, 6))
 	SimFactory.run(_sim, 30)
-	assert_eq(_dwarf.mood, Dwarf.Mood.GOOD, "well rested, with a bunk in the hold")
+	assert_eq(_dwarf.mood, Dwarf.Mood.OK, "nothing has gone well or badly yet")
 
 	SimFactory.run(_sim, 600)
 	var moods: Array[int] = [_dwarf.mood, other.mood]
 	moods.sort()
-	assert_eq(moods[0], Dwarf.Mood.BAD, "one of them never gets the bunk")
-	var loser: Dwarf = _dwarf if _dwarf.mood == Dwarf.Mood.BAD else other
-	assert_eq(loser.needs[SimFactory.SLEEP], 0.0)
-	assert_eq(loser.speech, "tired!")
-	var reported: bool = false
-	for entry: RequestEntry in _sim.requests.entries:
-		reported = reported or entry.message.contains("Build more bunks")
-	assert_true(reported)
+	assert_eq(moods, [Dwarf.Mood.BAD, Dwarf.Mood.GOOD] as Array[int], "one slept in the bunk, the other on the floor")
+	var winner: Dwarf = _dwarf if _dwarf.mood == Dwarf.Mood.GOOD else other
+	var loser: Dwarf = other if winner == _dwarf else _dwarf
+	assert_eq(winner.need_quality[SimFactory.SLEEP], 1)
+	assert_eq(loser.need_quality[SimFactory.SLEEP], -1)
+	assert_gt(loser.needs[SimFactory.SLEEP], 0.0, "they still got some sleep")
 
 
 func test_mood_changes_how_fast_a_dwarf_walks() -> void:
@@ -133,11 +148,13 @@ func test_mood_changes_how_fast_a_dwarf_walks() -> void:
 		# Hold the need at a level that gives this mood, then send the dwarf walking.
 		var level: float = [0.0, 0.45, 1.0][mood]
 		_dwarf.needs[SimFactory.SLEEP] = level
+		_dwarf.need_quality[SimFactory.SLEEP] = 1 if mood == Dwarf.Mood.GOOD else 0
 		# Mood is worked out at the end of each tick, so let one pass first.
 		_dwarf.activity = Dwarf.Activity.IDLE
 		_dwarf.idle_ticks_left = 100
 		_sim.tick()
 		_dwarf.needs[SimFactory.SLEEP] = level
+		_dwarf.needs[SimFactory.FOOD] = 1.0
 		_dwarf.path = [_dwarf.pos + Vector2i(1, 0)] as Array[Vector2i]
 		_dwarf.activity = Dwarf.Activity.WALK
 		_dwarf.move_ticks_left = 0
@@ -173,6 +190,5 @@ func test_removing_the_bunk_room_wakes_the_sleeper() -> void:
 	assert_eq(_dwarf.activity, Dwarf.Activity.REST)
 	_sim.remove_rooms(room.rect)
 	SimFactory.run(_sim, 5)
-	assert_ne(_dwarf.activity, Dwarf.Activity.REST)
-	assert_null(_dwarf.seat)
+	assert_null(_dwarf.seat, "out of the bunk; if still tired they carry on on the floor")
 	assert_eq(_sim.rooms.provider_count(&"sleep"), 0)

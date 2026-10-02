@@ -3,36 +3,35 @@ extends RefCounted
 ## Runs dwarves' needs down, works out mood from them, and decides what a
 ## dwarf is saying. Stateless: the values live on the Dwarf.
 ##
-## Mood has three levels. Bad: some need has run out. Good: at least one need
-## is in play and every one of them is comfortably met. Ok: anything else,
-## including a hold where no need is in play yet.
+## Mood is a sum over needs. Each need counts how well it was last met: -1 for
+## the floor, 0 for plain fare, 1 for a bunk or a proper meal at a table. A
+## need that has run out counts -2 instead, so going without is worse than
+## making do. Below zero is a bad mood, above zero good, zero is ok.
 
-## A need at or above this counts as comfortably met.
-const COMFORTABLE: float = 0.5
+## What a need that has run out adds to the mood sum.
+const RAN_OUT: int = -2
 
 
 ## Call once per tick per dwarf.
 func tick(sim: Simulation, dwarf: Dwarf) -> void:
 	var needs: Array[NeedDef] = sim.config.needs
-	var any_active: bool = false
-	var all_comfortable: bool = true
+	var score: int = 0
 	var unmet: NeedDef = null
 	for i in needs.size():
 		var need: NeedDef = needs[i]
-		if not is_active(sim, need):
-			continue
-		any_active = true
 		var resting: bool = dwarf.activity == Dwarf.Activity.REST and dwarf.restoring == i
 		if not resting:
 			dwarf.needs[i] = maxf(dwarf.needs[i] - 1.0 / need.decay_ticks, 0.0)
-		if dwarf.needs[i] <= 0.0 and unmet == null:
-			unmet = need
-		if dwarf.needs[i] < COMFORTABLE:
-			all_comfortable = false
+		if dwarf.needs[i] <= 0.0:
+			score += RAN_OUT
+			if unmet == null:
+				unmet = need
+		else:
+			score += dwarf.need_quality[i]
 
-	if unmet != null:
+	if score < 0:
 		dwarf.mood = Dwarf.Mood.BAD
-	elif any_active and all_comfortable:
+	elif score > 0:
 		dwarf.mood = Dwarf.Mood.GOOD
 	else:
 		dwarf.mood = Dwarf.Mood.OK
@@ -47,25 +46,15 @@ func tick(sim: Simulation, dwarf: Dwarf) -> void:
 		dwarf.speech = ""
 
 
-## A need is in play once the hold has somewhere to see to it and, if it
-## consumes something, a way to make that or some already to hand.
-func is_active(sim: Simulation, need: NeedDef) -> bool:
-	if sim.rooms.provider_count(need.provider) == 0:
-		return false
-	if need.consumes == null:
-		return true
-	var type: int = sim.item_type(need.consumes)
-	return sim.rooms.can_make(sim, type) or sim.storage.available_total(type) > 0 or sim.loose_unassigned_count(type) > 0
-
-
 ## How many of an item type dwarves are about to want for a need: those who
-## need it and haven't set off for one yet, plus the stock kept ready.
+## need it and haven't set off for one yet, plus the stock kept ready. Only
+## the best thing for a need is asked for; the rest are what dwarves make do with.
 func demand_for(sim: Simulation, type: int) -> int:
 	var total: int = 0
 	var needs: Array[NeedDef] = sim.config.needs
 	for i in needs.size():
 		var need: NeedDef = needs[i]
-		if need.consumes == null or sim.item_type(need.consumes) != type or not is_active(sim, need):
+		if need.consumes.is_empty() or sim.item_type(need.consumes[0]) != type:
 			continue
 		total += need.stock_target
 		for dwarf: Dwarf in sim.dwarves:
@@ -80,7 +69,7 @@ func most_pressing(sim: Simulation, dwarf: Dwarf) -> int:
 	var needs: Array[NeedDef] = sim.config.needs
 	var best: int = -1
 	for i in needs.size():
-		if not is_active(sim, needs[i]) or dwarf.needs[i] >= needs[i].seek_below:
+		if dwarf.needs[i] >= needs[i].seek_below:
 			continue
 		if best < 0 or dwarf.needs[i] < dwarf.needs[best]:
 			best = i

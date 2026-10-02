@@ -11,7 +11,11 @@ var _dwarf: Dwarf
 
 
 func before_each() -> void:
-	_sim = SimFactory.make_sim()
+	var config := SimFactory.make_config()
+	SimFactory.hurry_needs(config)
+	# Only food is under test here; sleep is kept out of the way.
+	config.needs[SimFactory.SLEEP].decay_ticks = SimFactory.SLOW
+	_sim = SimFactory.make_sim(config)
 	SimFactory.carve(_sim, Rect2i(1, 4, 22, 3))
 	_dwarf = _sim.hire_dwarf()
 	SimFactory.place_dwarf(_dwarf, Vector2i(10, 6))
@@ -39,17 +43,57 @@ func _supply(type: int, count: int, tile: Vector2i) -> Pile:
 	return pile
 
 
-func test_food_is_not_in_play_without_a_kitchen() -> void:
+func test_raw_mushroom_at_a_table_leaves_the_dwarf_neutral() -> void:
 	_hall(Rect2i(14, 6, 5, 1))
-	SimFactory.run(_sim, 600)
-	assert_eq(_dwarf.needs[SimFactory.FOOD], 1.0, "a hall alone doesn't make anyone hungry")
+	_supply(SimFactory.MUSHROOM, 2, Vector2i(8, 6))
+	_dwarf.needs[SimFactory.FOOD] = 0.3
+	assert_ne(_run_until_eating(400), Vector2i(-1, -1), "ate a raw mushroom, there being no meal")
+	assert_eq(_dwarf.need_quality[SimFactory.FOOD], 0)
+	_run_until_up(100)
 	assert_eq(_dwarf.mood, Dwarf.Mood.OK)
 
 
-func test_food_is_not_in_play_without_somewhere_to_eat() -> void:
-	_kitchen(Rect2i(1, 6, 4, 1))
-	SimFactory.run(_sim, 600)
-	assert_eq(_dwarf.needs[SimFactory.FOOD], 1.0)
+func test_eating_on_the_floor_is_worse_than_at_a_table() -> void:
+	# No hall. A meal is eaten where it is picked up.
+	_supply(SimFactory.MEAL, 2, Vector2i(8, 6))
+	_dwarf.needs[SimFactory.FOOD] = 0.3
+	var ate_at: Vector2i = _run_until_eating(400)
+	assert_ne(ate_at, Vector2i(-1, -1))
+	assert_lte(absi(ate_at.x - 8), 1, "by the pile")
+	assert_null(_dwarf.seat)
+	assert_eq(_dwarf.need_quality[SimFactory.FOOD], 0, "a good meal on the floor is only plain")
+	_run_until_up(100)
+	assert_gt(_dwarf.needs[SimFactory.FOOD], 0.9, "fed all the same")
+
+	# A raw mushroom on the floor is the worst of both.
+	_supply(SimFactory.MUSHROOM, 2, Vector2i(12, 6))
+	_sim.storage.remove_pile(_sim.storage.piles[0])
+	_dwarf.needs[SimFactory.FOOD] = 0.3
+	assert_ne(_run_until_eating(400), Vector2i(-1, -1))
+	assert_eq(_dwarf.need_quality[SimFactory.FOOD], -1)
+	_run_until_up(100)
+	assert_eq(_dwarf.mood, Dwarf.Mood.BAD)
+
+
+func test_a_proper_meal_at_a_table_is_what_makes_a_dwarf_happy() -> void:
+	_hall(Rect2i(14, 6, 5, 1))
+	_supply(SimFactory.MEAL, 1, Vector2i(8, 6))
+	_dwarf.needs[SimFactory.FOOD] = 0.3
+	assert_ne(_run_until_eating(400), Vector2i(-1, -1))
+	assert_eq(_dwarf.need_quality[SimFactory.FOOD], 1)
+	_run_until_up(100)
+	assert_eq(_dwarf.mood, Dwarf.Mood.GOOD)
+
+
+func test_going_hungry_is_worse_than_making_do() -> void:
+	# Nothing to eat at all: hunger runs out and outweighs a bunk slept in.
+	_dwarf.need_quality[SimFactory.SLEEP] = 1
+	_dwarf.needs[SimFactory.FOOD] = 0.05
+	_dwarf.needs[SimFactory.SLEEP] = 1.0
+	SimFactory.run(_sim, 40)
+	assert_eq(_dwarf.needs[SimFactory.FOOD], 0.0)
+	assert_eq(_dwarf.mood, Dwarf.Mood.BAD)
+	assert_eq(_dwarf.speech, "hungry!")
 
 
 func test_kitchen_cooks_to_keep_a_meal_in_stock() -> void:

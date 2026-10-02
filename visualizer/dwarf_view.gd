@@ -22,6 +22,8 @@ const SEAT_HEIGHT: float = 0.22
 ## Lays the rig on its back with the head to the left. The rig is taller than a
 ## bunk is long for now, so it is also shrunk to fit.
 const LYING_DOWN := Basis(Vector3(0, 0.55, 0), Vector3(-0.55, 0, 0), Vector3(0, 0, 0.55))
+## Where the lying rig's feet go when sleeping on the floor.
+const FLOOR_OFFSET := Vector3(0.42, 0.2, 0.0)
 ## Where the lying rig's feet go, relative to the middle of the bunk's base.
 const BED_OFFSET := Vector3(0.42, 0.62, 0.0)
 ## Turns the rig, which faces +X, towards the camera.
@@ -69,11 +71,14 @@ func refresh(sim: Simulation, alpha: float) -> void:
 	var moving: bool = _dwarf.move_ticks_left > 0
 	var working: bool = _dwarf.activity == Dwarf.Activity.WORK
 	var sitting: bool = _dwarf.activity == Dwarf.Activity.SIT
-	# Resting on a bunk means lying down; resting on a chair (eating, drinking) is sitting.
-	var on_seat: bool = _dwarf.seat != null and _dwarf.seat.def.seat
-	var resting: bool = _dwarf.activity == Dwarf.Activity.REST and not on_seat
-	if _dwarf.activity == Dwarf.Activity.REST and on_seat:
-		sitting = true
+	# Sleeping means lying down, on a bunk or on the floor. Eating and drinking
+	# is sitting, on a chair or on the floor.
+	var resting: bool = false
+	if _dwarf.activity == Dwarf.Activity.REST and _dwarf.restoring >= 0:
+		if sim.config.needs[_dwarf.restoring].consumes.is_empty():
+			resting = true
+		else:
+			sitting = true
 	# A dwarf standing or sitting still doesn't change, so leave the scene
 	# untouched and let the renderer skip the frame.
 	if not moving and not working and _dwarf.carrying == null:
@@ -92,12 +97,14 @@ func refresh(sim: Simulation, alpha: float) -> void:
 	if sitting or resting:
 		lane = ViewSpace.LANE_SEATED
 	var origin: Vector3 = ViewSpace.tile_floor(tile.x, tile.y, lane + (_dwarf.id % 8) * 0.01)
+	var on_furniture: bool = _dwarf.seat != null
 	if resting:
-		# Lying on the bunk, head on the pillow at the left.
-		origin += BED_OFFSET
+		# Lying down, head to the left: on the bunk's pillow, or on the bare floor.
+		origin += BED_OFFSET if on_furniture else FLOOR_OFFSET
 		_rig.basis = LYING_DOWN
 	elif sitting:
-		origin.y += SEAT_HEIGHT
+		if on_furniture:
+			origin.y += SEAT_HEIGHT
 		_rig.basis = FACING_CAMERA
 	else:
 		# Dwarves working from the same tile stand side by side, not inside each other.

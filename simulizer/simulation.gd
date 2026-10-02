@@ -152,6 +152,7 @@ func hire_dwarf() -> Dwarf:
 	dwarf.pace = 1.0 + rng.randf_range(-config.pace_variation, config.pace_variation)
 	dwarf.needs.resize(config.needs.size())
 	dwarf.needs.fill(1.0)
+	dwarf.need_quality.resize(config.needs.size())
 	dwarves.append(dwarf)
 	dwarf_hired.emit(dwarf)
 	return dwarf
