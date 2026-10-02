@@ -7,6 +7,8 @@ extends Control
 signal tool_selected(tool: ToolController.Tool)
 ## The player picked a type of room to place.
 signal room_tool_selected(def: RoomDef)
+## The player chose what stairs and floors are built from.
+signal build_material_selected(def: ItemDef)
 signal hire_requested
 signal speed_selected(multiplier: float)
 signal reveal_toggled(enabled: bool)
@@ -23,6 +25,7 @@ signal layer_step_requested(direction: int)
 @onready var _stockpile_button: Button = $Bar/StockpileButton
 @onready var _build_button: Button = $Bar/BuildButton
 @onready var _build_panel: PanelContainer = $BuildPanel
+@onready var _material_button: Button = $BuildPanel/Row/MaterialButton
 @onready var _room_button: Button = $Bar/RoomButton
 @onready var _room_panel: PanelContainer = $RoomPanel
 @onready var _room_row: HBoxContainer = $RoomPanel/Row
@@ -61,6 +64,8 @@ var _tool_buttons: Dictionary[ToolController.Tool, Button] = {}
 var _pickers: Dictionary[Button, PanelContainer] = {}
 ## What each picker button says when nothing is chosen.
 var _picker_titles: Dictionary[Button, String] = {}
+## Which of SimConfig.build_materials is selected.
+var _material_index: int = 0
 ## One button per entry in SPEEDS.
 var _speed_buttons: Array[Button] = []
 
@@ -103,6 +108,9 @@ func bind(sim: Simulation) -> void:
 	sim.requests.changed.connect(_refresh_requests)
 	sim.dwarf_hired.connect(func(_dwarf: Dwarf) -> void: _refresh_dwarf_count())
 	_clear_button.pressed.connect(sim.requests.clear)
+	_material_button.visible = sim.config.build_materials.size() > 1
+	_material_button.pressed.connect(_on_material_pressed)
+	_show_material()
 	for def: RoomDef in sim.config.rooms:
 		var button := Button.new()
 		button.text = def.display_name
@@ -204,6 +212,19 @@ func _on_option_pressed(button: Button, label: String, tool: ToolController.Tool
 	_pickers[button].visible = false
 	button.text = "%s: %s" % [_picker_titles[button], label]
 	tool_selected.emit(tool)
+
+
+## Steps to the next building material.
+func _on_material_pressed() -> void:
+	_material_index = (_material_index + 1) % _sim.config.build_materials.size()
+	_show_material()
+	build_material_selected.emit(_sim.config.build_materials[_material_index])
+
+
+func _show_material() -> void:
+	if _sim.config.build_materials.is_empty():
+		return
+	_material_button.text = _sim.config.build_materials[_material_index].display_name
 
 
 func _on_room_type_pressed(def: RoomDef) -> void:

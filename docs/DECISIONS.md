@@ -54,6 +54,15 @@ Judgment calls made while building, newest milestone first. Each entry says what
 - A tower only goes straight up from a floor. It doesn't bridge gaps or rescue a trapped dwarf; those stay as stairs and floors the player places.
 - There is no player-placed scaffolding yet.
 
+### Dirt and stone
+- Dirt is waste (`dump` on the item). It is never stored. Dwarves carry it up to a spoil heap on the surface, 7 tiles left of where they arrived, and it is gone. The heap grows as a visible mound.
+- If there is no way up to the heap, dirt stays where it fell and nobody complains.
+- The dirt layer is thin now: about the top 6 rows. Below that it is stone.
+- Stairs and floors can be built from wood or stone, chosen with a button in the Build picker (`build_materials`). Both cost 1 per tile. What a structure is made of is remembered, drawn in that colour, and given back when it is taken down.
+- Scaffolding is always wood.
+- Stone does not count as higher quality yet. Nothing measures quality.
+- Not built yet: walls, a mason's workshop, stone furniture.
+
 ### Needs and mood
 - A need is data (`NeedDef`): how fast it runs down, how fast it is restored, when a dwarf goes to see to it, and what they say. Sleep is the only one so far.
 - A need is asleep until something in the hold can satisfy it. With no bunk built, nobody gets tired. This replaces any "turn needs on" switch.

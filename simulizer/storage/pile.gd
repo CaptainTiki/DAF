@@ -10,6 +10,8 @@ enum Kind {
 	OUTPUT,
 	## Starting supplies. Mixed types, no limit.
 	SUPPLY,
+	## The spoil heap. Waste carried here is gone for good; it never holds anything.
+	DUMP,
 }
 
 const UNLIMITED: int = 0

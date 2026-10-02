@@ -13,6 +13,12 @@ const STACK_SIZE: int = 10
 ## Other shapes on a pile sit three to a row.
 const SHAPE_STACK_SCALE: float = 0.42
 const SHAPES_PER_ROW: int = 3
+const HEAP_COLOR := Color(0.42, 0.3, 0.19)
+const HEAP_WIDTH: float = 3.0
+const HEAP_MIN_HEIGHT: float = 0.2
+const HEAP_MAX_HEIGHT: float = 2.2
+## Height the heap gains per item tipped on it.
+const HEAP_GROWTH: float = 0.006
 
 @onready var _loose_balls: MultiMeshInstance3D = $LooseBalls
 @onready var _pile_balls: MultiMeshInstance3D = $PileBalls
@@ -24,6 +30,7 @@ var _loose_batch: BoxBatch
 var _pile_batch: BoxBatch
 var _last_items_version: int = -1
 var _piles_dirty: bool = true
+var _last_dumped: int = -1
 
 
 func bind(sim: Simulation) -> void:
@@ -34,8 +41,9 @@ func bind(sim: Simulation) -> void:
 
 
 func refresh(alpha: float) -> void:
-	if _piles_dirty:
+	if _piles_dirty or _sim.dumped != _last_dumped:
 		_piles_dirty = false
+		_last_dumped = _sim.dumped
 		_rebuild_piles()
 	if _sim.items_version != _last_items_version or _sim.unsettled_item_count() > 0:
 		_last_items_version = _sim.items_version
@@ -100,8 +108,22 @@ func _rebuild_piles() -> void:
 				else:
 					GreyboxShapes.add_item(_pile_batch, def.shape, base + _shape_offset(shape_slot), def.color, SHAPE_STACK_SCALE)
 					shape_slot += 1
+	_add_spoil_heap()
 	balls.visible_instance_count = ball_index
 	_pile_batch.commit()
+
+
+## The spoil heap grows with what has been tipped on it, up to a limit.
+func _add_spoil_heap() -> void:
+	var heap: Pile = _sim.dump_pile
+	if heap == null or _sim.dumped == 0:
+		return
+	var base: Vector3 = ViewSpace.tile_floor(heap.tile.x, heap.tile.y, ViewSpace.LANE_STRUCTURE)
+	var height: float = minf(HEAP_MIN_HEIGHT + _sim.dumped * HEAP_GROWTH, HEAP_MAX_HEIGHT)
+	var step: float = height / 3.0
+	for tier in 3:
+		var width: float = HEAP_WIDTH * (1.0 - tier * 0.3)
+		_pile_batch.add_box(base + Vector3(0.0, step * (tier + 0.5), 0.0), Vector3(width, step, 0.5), HEAP_COLOR.darkened(tier * 0.08))
 
 
 ## Position of the nth ball on a pile, relative to the tile floor.

@@ -150,14 +150,19 @@ layout_mode = 2
 layout_mode = 2
 text = "Build:"
 
+[node name="MaterialButton" type="Button" parent="BuildPanel/Row"]
+layout_mode = 2
+tooltip_text = "What stairs and floors are built from. Click to change. 1 per tile."
+text = "Wood"
+
 [node name="StairsOption" type="Button" parent="BuildPanel/Row"]
 layout_mode = 2
-tooltip_text = "Drag diagonally. Stairs can run through rock. 1 wood per tile."
+tooltip_text = "Drag diagonally. Stairs can run through rock."
 text = "Stairs"
 
 [node name="FloorOption" type="Button" parent="BuildPanel/Row"]
 layout_mode = 2
-tooltip_text = "Drag across open space. Dwarves walk on top of it. 1 wood per tile."
+tooltip_text = "Drag across open space. Dwarves walk on top of it."
 text = "Floor"
 
 [node name="RemoveOption" type="Button" parent="BuildPanel/Row"]

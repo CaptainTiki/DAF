@@ -88,7 +88,7 @@ func test_entry_room_is_open_with_a_floor() -> void:
 
 func test_materials_follow_depth() -> void:
 	var grid := _generate(99)
-	var top := _count_materials(grid, 8, 19)
+	var top := _count_materials(grid, 8, 12)
 	var bottom := _count_materials(grid, 105, 129)
 	var all := _count_materials(grid, 0, 129)
 	assert_gt(top[_index(&"dirt")], top[_index(&"stone")], "dirt dominates near the surface")

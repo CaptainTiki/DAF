@@ -34,6 +34,10 @@ var tick_count: int = 0
 ## Bumped whenever an item appears, disappears, is picked up, dropped or comes to rest,
 ## so views can skip rebuilding when nothing changed.
 var items_version: int = 0
+## Where waste is tipped. Null if no item type is waste.
+var dump_pile: Pile
+## How many items have been tipped on the spoil heap.
+var dumped: int = 0
 ## Tick at which each Job.Kind was last taken up by a dwarf.
 var kind_served: PackedInt32Array
 
@@ -41,6 +45,8 @@ var _driver := DwarfDriver.new()
 var _unsettled: Array[Item] = []
 ## Structures being taken down, keyed the same way as _structure_sites.
 var _removal_sites: Dictionary[Vector3i, BuildSite] = {}
+## What each built structure is made of (item type), keyed like _structure_sites.
+var _structure_items: Dictionary[Vector3i, int] = {}
 ## Planned structures, keyed by (x, y, STRUCTURE_ bit).
 var _structure_sites: Dictionary[Vector3i, BuildSite] = {}
 var _next_item_id: int = 1
@@ -60,6 +66,7 @@ func _init(p_config: SimConfig, world_seed: int) -> void:
 	_name_order = _shuffled_indices(config.dwarf_names.size())
 	_plant_trees()
 	_place_supplies()
+	_place_dump()
 
 
 func tick() -> void:
@@ -201,25 +208,32 @@ func mark_stockpile(rect: Rect2i, marked: bool) -> int:
 ## Plans or cancels stairs on the given tiles. Stairs are built in the back lane,
 ## so the tile can be rock, floor or open room. Cancelling only removes plans;
 ## see remove_structures for what is already built. Returns how many changed.
-func mark_stairs(tiles: Array[Vector2i], marked: bool) -> int:
-	return _mark_structure(TileGrid.STRUCTURE_STAIR, tiles, marked)
+## `material` is what to build them from; null uses the default.
+func mark_stairs(tiles: Array[Vector2i], marked: bool, material: ItemDef = null) -> int:
+	return _mark_structure(TileGrid.STRUCTURE_STAIR, tiles, marked, material)
 
 
 ## Plans or cancels built floors on the open tiles in the rect. A floor is a
 ## platform along the top of its tile: it is walked on from the tile above.
 ## Returns how many changed.
-func mark_floors(rect: Rect2i, marked: bool) -> int:
+func mark_floors(rect: Rect2i, marked: bool, material: ItemDef = null) -> int:
 	var tiles: Array[Vector2i] = []
 	for y in range(rect.position.y, rect.end.y):
 		for x in range(rect.position.x, rect.end.x):
 			tiles.append(Vector2i(x, y))
-	return _mark_structure(TileGrid.STRUCTURE_FLOOR, tiles, marked)
+	return _mark_structure(TileGrid.STRUCTURE_FLOOR, tiles, marked, material)
+
+
+## The item type a built structure is made of. Anything not on record is taken
+## to be made of the default material, which is NO_ITEM when structures are free.
+func structure_item_type(tile: Vector2i, structure: int) -> int:
+	return _structure_items.get(Vector3i(tile.x, tile.y, structure), item_type(config.structure_item))
 
 
 ## Plans or cancels scaffolding on the given open tiles. Dwarves normally do
 ## this themselves through the Scaffolder. Returns how many changed.
 func mark_scaffolds(tiles: Array[Vector2i], marked: bool) -> int:
-	return _mark_structure(TileGrid.STRUCTURE_SCAFFOLD, tiles, marked)
+	return _mark_structure(TileGrid.STRUCTURE_SCAFFOLD, tiles, marked, null)
 
 
 ## Marks the structures in the rect to be taken down, or takes that mark off
@@ -358,9 +372,12 @@ func complete_site(site: BuildSite) -> void:
 	if site.removing:
 		_take_down(site)
 		return
+	var key := Vector3i(site.tile.x, site.tile.y, site.structure)
 	grid.set_flag(site.tile.x, site.tile.y, _mark_flag(site.structure), false)
 	grid.add_structure(site.tile.x, site.tile.y, site.structure)
-	_structure_sites.erase(Vector3i(site.tile.x, site.tile.y, site.structure))
+	_structure_sites.erase(key)
+	if site.request != null:
+		_structure_items[key] = site.request.item_type
 	tile_changed.emit(site.tile.x, site.tile.y)
 
 
@@ -452,7 +469,8 @@ func remove_item(item: Item) -> void:
 
 # --- Internals ---
 
-func _mark_structure(structure: int, tiles: Array[Vector2i], marked: bool) -> int:
+func _mark_structure(structure: int, tiles: Array[Vector2i], marked: bool, material: ItemDef) -> int:
+	var material_type: int = item_type(material if material != null else config.structure_item)
 	var flag: int = _mark_flag(structure)
 	# Floors and scaffolding span open space; stairs can go through anything.
 	var needs_open: bool = structure != TileGrid.STRUCTURE_STAIR
@@ -477,7 +495,7 @@ func _mark_structure(structure: int, tiles: Array[Vector2i], marked: bool) -> in
 				TileGrid.STRUCTURE_SCAFFOLD:
 					work_ticks = config.scaffold_build_ticks
 					purpose = "the scaffolding"
-			var site: BuildSite = add_site(tile, item_type(config.structure_item), config.structure_item_count, work_ticks, purpose, null)
+			var site: BuildSite = add_site(tile, material_type, config.structure_item_count, work_ticks, purpose, null)
 			site.structure = structure
 			_structure_sites[key] = site
 		else:
@@ -493,10 +511,13 @@ func _mark_structure(structure: int, tiles: Array[Vector2i], marked: bool) -> in
 ## Removes a built structure and drops the wood that was in it.
 func _take_down(site: BuildSite) -> void:
 	var tile: Vector2i = site.tile
-	_removal_sites.erase(Vector3i(tile.x, tile.y, site.structure))
+	var key := Vector3i(tile.x, tile.y, site.structure)
+	_removal_sites.erase(key)
 	grid.remove_structure(tile.x, tile.y, site.structure)
 	grid.set_flag(tile.x, tile.y, TileGrid.FLAG_REMOVE_MARK, _has_removal_site(tile))
-	spill(item_type(config.structure_item), config.structure_item_count, tile)
+	# What it was made of comes back.
+	spill(structure_item_type(tile, site.structure), config.structure_item_count, tile)
+	_structure_items.erase(key)
 	if site.structure != TileGrid.STRUCTURE_STAIR:
 		_drop_what_stood_on(tile)
 	tile_changed.emit(tile.x, tile.y)
@@ -640,6 +661,19 @@ func _place_supplies() -> void:
 	var pile: Pile = storage.add_pile(Pile.Kind.SUPPLY, spawn_point(), Pile.UNLIMITED)
 	for n in config.starting_item_count:
 		storage.put(pile, type)
+
+
+## Sets up the spoil heap on the surface, if any item type is waste.
+func _place_dump() -> void:
+	var has_waste: bool = false
+	for item: ItemDef in config.items:
+		has_waste = has_waste or item.dump
+	if not has_waste:
+		return
+	# Always on the surface, whatever level the dwarves arrive on.
+	var x: int = clampi(spawn_point().x + config.dump_offset, 0, grid.width - 1)
+	var tile := Vector2i(x, config.world_gen.surface_feet_row())
+	dump_pile = storage.add_pile(Pile.Kind.DUMP, tile, Pile.UNLIMITED)
 
 
 func _arrival_spot() -> Vector2i:

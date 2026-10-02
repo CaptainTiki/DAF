@@ -34,6 +34,7 @@ func _ready() -> void:
 
 	_hud.tool_selected.connect(_tools.set_tool)
 	_hud.room_tool_selected.connect(_tools.set_room_tool)
+	_hud.build_material_selected.connect(_tools.set_build_material)
 	_hud.hire_requested.connect(_sim.hire_dwarf)
 	_hud.speed_selected.connect(func(multiplier: float) -> void: _clock.speed = multiplier)
 	_hud.reveal_toggled.connect(_world_view.set_reveal_all)

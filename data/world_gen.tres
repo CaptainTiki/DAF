@@ -48,7 +48,7 @@ max_size = 14
 
 [sub_resource type="Resource" id="band_upper_rock"]
 script = ExtResource("2_band")
-start_depth = 0.12
+start_depth = 0.05
 base_material = ExtResource("5_stone")
 veins = Array[ExtResource("3_vein")]([SubResource("vein_upper_dirt"), SubResource("vein_upper_iron"), SubResource("vein_upper_copper")])
 

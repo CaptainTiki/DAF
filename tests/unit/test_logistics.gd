@@ -176,3 +176,78 @@ func test_crew_keeps_digging_while_one_hauls() -> void:
 				ticks_all_hauling += 1
 	assert_gt(ticks_with_work, 20)
 	assert_eq(ticks_all_hauling, 0, "the whole crew never drops digging to haul")
+
+# --- Waste ---
+
+## A world where dirt is waste, with a way up from the room to the surface.
+## Surface feet row is 2; the spoil heap is 7 tiles left of the room's middle, at (5, 2).
+func _start_with_waste() -> void:
+	var config := SimFactory.make_config()
+	config.items[SimFactory.DIRT_BALL].dump = true
+	_sim = SimFactory.make_sim(config)
+	_dwarf = _sim.hire_dwarf()
+	SimFactory.place_dwarf(_dwarf, Vector2i(12, 6))
+	for tile: Vector2i in [Vector2i(9, 5), Vector2i(8, 4), Vector2i(7, 3)]:
+		_sim.grid.add_structure(tile.x, tile.y, TileGrid.STRUCTURE_STAIR)
+
+
+func test_waste_is_carried_to_the_spoil_heap_and_is_gone() -> void:
+	_start_with_waste()
+	assert_not_null(_sim.dump_pile)
+	assert_eq(_sim.dump_pile.tile, Vector2i(5, 2))
+	_sim.mark_stockpile(Rect2i(13, 6, 2, 1), true)
+	for i in 3:
+		_sim.spawn_item(SimFactory.DIRT_BALL, Vector2i(14, 6))
+	SimFactory.run(_sim, 1500)
+	assert_eq(_sim.items.size(), 0)
+	assert_eq(_sim.dumped, 3)
+	assert_eq(_sim.storage.totals[SimFactory.DIRT_BALL], 0, "never stored, even with a stockpile free")
+	assert_eq(_sim.dump_pile.units_used, 0)
+	assert_eq(_sim.requests.entries.size(), 0)
+
+
+func test_waste_waits_quietly_when_there_is_no_way_to_the_heap() -> void:
+	var config := SimFactory.make_config()
+	config.items[SimFactory.DIRT_BALL].dump = true
+	_sim = SimFactory.make_sim(config)
+	_dwarf = _sim.hire_dwarf()
+	SimFactory.place_dwarf(_dwarf, Vector2i(12, 6))
+	_sim.spawn_item(SimFactory.DIRT_BALL, Vector2i(14, 6))
+	_sim.spawn_item(SimFactory.STONE_BALL, Vector2i(14, 6))
+	_sim.mark_stockpile(Rect2i(9, 6, 1, 1), true)
+	SimFactory.run(_sim, 600)
+	assert_eq(_sim.dumped, 0)
+	assert_eq(_sim.items.size(), 1, "the dirt stays where it fell")
+	assert_eq(_sim.storage.totals[SimFactory.STONE_BALL], 1, "other things are still stored")
+	for entry: RequestEntry in _sim.requests.entries:
+		assert_false(entry.message.contains("dirt"), "and nobody complains about dirt")
+
+
+func test_stairs_and_floors_can_be_built_from_stone() -> void:
+	var config := SimFactory.make_config()
+	config.structure_item = config.items[SimFactory.WOOD]
+	_sim = SimFactory.make_sim(config)
+	_dwarf = _sim.hire_dwarf()
+	SimFactory.place_dwarf(_dwarf, Vector2i(10, 6))
+	var stone: ItemDef = config.items[SimFactory.STONE_BALL]
+	var pile: Pile = _sim.storage.add_pile(Pile.Kind.SUPPLY, Vector2i(9, 6), Pile.UNLIMITED)
+	_sim.storage.put(pile, SimFactory.STONE_BALL)
+	_sim.storage.put(pile, SimFactory.WOOD)
+	var stone_stair: Array[Vector2i] = [Vector2i(13, 7)]
+	var wood_stair: Array[Vector2i] = [Vector2i(11, 7)]
+	_sim.mark_stairs(stone_stair, true, stone)
+	_sim.mark_stairs(wood_stair, true)
+	SimFactory.run(_sim, 800)
+	assert_true(_sim.grid.has_stair(13, 7))
+	assert_true(_sim.grid.has_stair(11, 7))
+	assert_eq(_sim.structure_item_type(Vector2i(13, 7), TileGrid.STRUCTURE_STAIR), SimFactory.STONE_BALL)
+	assert_eq(_sim.structure_item_type(Vector2i(11, 7), TileGrid.STRUCTURE_STAIR), SimFactory.WOOD)
+	assert_eq(_sim.storage.totals[SimFactory.STONE_BALL], 0)
+	assert_eq(_sim.storage.totals[SimFactory.WOOD], 0)
+
+	# Taking the stone stair down gives stone back, not wood.
+	_sim.mark_removal(Rect2i(13, 7, 1, 1), true)
+	SimFactory.run(_sim, 600)
+	assert_false(_sim.grid.has_stair(13, 7))
+	var stone_back: int = _sim.storage.totals[SimFactory.STONE_BALL] + _sim.loose_unassigned_count(SimFactory.STONE_BALL)
+	assert_eq(stone_back, 1)

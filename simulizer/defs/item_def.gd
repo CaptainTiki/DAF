@@ -10,5 +10,7 @@ enum Shape { BALL, LOG, CHAIR, TABLE, BED }
 @export var color: Color = Color.WHITE
 ## Storage units one of these takes up. A pile holds a fixed number of units.
 @export_range(1, 100) var size: int = 1
+## Waste: never stored. Dwarves carry it up and tip it on the spoil heap.
+@export var dump: bool = false
 ## How the view draws it.
 @export var shape: Shape = Shape.BALL

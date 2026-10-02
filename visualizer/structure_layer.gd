@@ -71,7 +71,7 @@ func _rebuild() -> void:
 	for tile: Vector2i in _stairs:
 		for direction: Vector2i in _plank_directions(tile):
 			planks.set_instance_transform(plank_count, _half_plank(tile, direction))
-			planks.set_instance_color(plank_count, STAIR_COLOR)
+			planks.set_instance_color(plank_count, _material_color(tile, TileGrid.STRUCTURE_STAIR, STAIR_COLOR))
 			plank_count += 1
 	planks.visible_instance_count = plank_count
 
@@ -87,7 +87,7 @@ func _rebuild() -> void:
 				_set_strip(strips, strip_count, tile.x, y, color)
 				strip_count += 1
 	for tile: Vector2i in _floors:
-		_set_strip(strips, strip_count, tile.x, tile.y, FLOOR_COLOR * ViewSpace.tile_jitter(tile.x, tile.y))
+		_set_strip(strips, strip_count, tile.x, tile.y, _material_color(tile, TileGrid.STRUCTURE_FLOOR, FLOOR_COLOR) * ViewSpace.tile_jitter(tile.x, tile.y))
 		strip_count += 1
 	for tile: Vector2i in _scaffolds:
 		var centre: Vector3 = ViewSpace.tile_center(tile.x, tile.y, ViewSpace.LANE_STRUCTURE)
@@ -96,6 +96,14 @@ func _rebuild() -> void:
 		_set_quad(strips, strip_count + 2, centre + Vector3(POLE_INSET, 0.0, 0.0), Vector2(POLE_WIDTH, 1.0), SCAFFOLD_COLOR.darkened(0.25))
 		strip_count += 3
 	strips.visible_instance_count = strip_count
+
+
+## The colour of what a structure is made of, or `fallback` if it was built for free.
+func _material_color(tile: Vector2i, structure: int, fallback: Color) -> Color:
+	var type: int = _sim.structure_item_type(tile, structure)
+	if type == Simulation.NO_ITEM:
+		return fallback
+	return _sim.item_def(type).color
 
 
 ## Which ways planks run from the middle of a stair tile: towards every stair

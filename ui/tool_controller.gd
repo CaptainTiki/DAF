@@ -18,6 +18,8 @@ const ROOM_PREVIEW_ALPHA: float = 0.4
 var tool: Tool = Tool.NONE: set = set_tool
 ## The type of room the ROOM tool places.
 var room_def: RoomDef
+## What the STAIRS and FLOOR tools build from. Null uses the sim's default.
+var build_material: ItemDef
 
 var _sim: Simulation
 var _view: WorldView
@@ -39,6 +41,10 @@ func set_tool(value: Tool) -> void:
 		return
 	_cancel_drag()
 	_view.camera.left_drag_pans = tool == Tool.NONE
+
+
+func set_build_material(def: ItemDef) -> void:
+	build_material = def
 
 
 ## Switches to the ROOM tool for one type of room.
@@ -82,12 +88,12 @@ func _apply() -> void:
 			if _unmark:
 				_sim.mark_removal(_drag_rect(), true)
 			else:
-				_sim.mark_stairs(_drag_diagonal(), true)
+				_sim.mark_stairs(_drag_diagonal(), true, build_material)
 		Tool.FLOOR:
 			if _unmark:
 				_sim.mark_removal(_drag_rect(), true)
 			else:
-				_sim.mark_floors(_drag_rect(), true)
+				_sim.mark_floors(_drag_rect(), true, build_material)
 		Tool.REMOVE_STRUCTURE:
 			# Left drag marks for removal; right drag takes the mark off again.
 			_sim.mark_removal(_drag_rect(), not _unmark)

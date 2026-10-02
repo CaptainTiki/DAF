@@ -89,7 +89,7 @@ func test_real_game_starts_on_the_surface_with_wood_and_trees() -> void:
 	var wood: int = sim.item_type(config.starting_item)
 	assert_eq(sim.spawn_point(), Vector2i(80, 7))
 	assert_eq(sim.storage.totals[wood], 10)
-	assert_eq(sim.storage.piles.size(), 1)
+	assert_eq(sim.storage.piles.size(), 2, "the supplies and the spoil heap")
 	assert_eq(sim.storage.piles[0].kind, Pile.Kind.SUPPLY)
 	assert_eq(sim.plants.plants.size(), 8)
 	for plant: Plant in sim.plants.plants:

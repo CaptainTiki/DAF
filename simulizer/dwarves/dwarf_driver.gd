@@ -560,13 +560,23 @@ func _try_haul_loose(sim: Simulation, dwarf: Dwarf, flood_map: FloodMap) -> bool
 			best_dist = dist
 	if best == null:
 		return false
-	var pile: Pile = sim.storage.reserve_stock_space(best.item.type, best.item.pos, flood_map)
-	if pile == null:
-		# Leave the item where it is and tell the player. The cooldown lets the
-		# next search consider other items.
-		_post_no_storage(sim, dwarf, best.item.type)
-		best.retry_tick = sim.tick_count + sim.config.job_retry_ticks
-		return false
+	var pile: Pile = null
+	if sim.item_def(best.item.type).dump:
+		# Waste goes to the spoil heap, if there is a way up to it.
+		var heap: Pile = sim.dump_pile
+		if heap != null and Pathfinder.best_access(flood_map, heap.tile.x, heap.tile.y, true) != Pathfinder.NO_SPOT:
+			pile = heap
+		if pile == null:
+			best.retry_tick = sim.tick_count + sim.config.job_retry_ticks
+			return false
+	else:
+		pile = sim.storage.reserve_stock_space(best.item.type, best.item.pos, flood_map)
+		if pile == null:
+			# Leave the item where it is and tell the player. The cooldown lets the
+			# next search consider other items.
+			_post_no_storage(sim, dwarf, best.item.type)
+			best.retry_tick = sim.tick_count + sim.config.job_retry_ticks
+			return false
 	best.dest_pile = pile
 	_start_job(sim, dwarf, best, flood_map.path_to(best_spot.x, best_spot.y))
 	return true
@@ -654,6 +664,9 @@ func _deliver(sim: Simulation, dwarf: Dwarf, job: Job) -> void:
 		job.dest_request.incoming = maxi(job.dest_request.incoming - 1, 0)
 		job.dest_request.delivered += 1
 		job.dest_request = null
+	elif job.dest_pile.kind == Pile.Kind.DUMP:
+		sim.dumped += 1
+		job.dest_pile = null
 	else:
 		sim.storage.deposit(job.dest_pile, job.item_type)
 		job.dest_pile = null
@@ -689,7 +702,8 @@ func _abandon_job(sim: Simulation, dwarf: Dwarf, cooldown: bool) -> void:
 			job.dest_request.incoming = maxi(job.dest_request.incoming - 1, 0)
 			job.dest_request = null
 		if job.dest_pile != null:
-			sim.storage.release_space(job.dest_pile, job.item_type)
+			if job.dest_pile.kind != Pile.Kind.DUMP:
+				sim.storage.release_space(job.dest_pile, job.item_type)
 			job.dest_pile = null
 		if job.source_pile != null:
 			sim.storage.release_out(job.source_pile, job.item_type)

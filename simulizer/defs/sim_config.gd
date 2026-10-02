@@ -60,9 +60,14 @@ extends Resource
 @export var scaffold_max_height: int = 8
 ## Ticks to take down one tile of stairs or floor.
 @export var remove_ticks: int = 30
-## What a tile of stairs or floor is made of. Null makes structures free.
+## What a tile of stairs, floor or scaffolding is made of unless the player
+## picks something else. Null makes structures free.
 @export var structure_item: ItemDef
 @export var structure_item_count: int = 1
+## What the player may build stairs and floors from, in picker order.
+@export var build_materials: Array[ItemDef] = []
+## How far from where the dwarves arrive the spoil heap is, in tiles. Negative is to the left.
+@export var dump_offset: int = -7
 ## Storage units a pile holds. An item takes ItemDef.size units.
 @export var pile_capacity: int = 10
 ## Minimum gap before a repeated request bumps its count again.
