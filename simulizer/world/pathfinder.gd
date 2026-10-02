@@ -51,6 +51,12 @@ static func can_reach(from: Vector2i, tile: Vector2i) -> bool:
 	return dy >= -2 and dy <= 1
 
 
+## Digging reach: the column beside, plus the tile directly above the dwarf's
+## head. Digging overhead never takes away the dwarf's own footing.
+static func can_dig_from(from: Vector2i, tile: Vector2i) -> bool:
+	return can_reach(from, tile) or (tile.x == from.x and tile.y == from.y - 2)
+
+
 ## Reach, or standing right on the tile. Used for picking up and putting down.
 static func can_access(from: Vector2i, tile: Vector2i) -> bool:
 	return from == tile or can_reach(from, tile)
@@ -118,13 +124,19 @@ static func flood(grid: TileGrid, start: Vector2i, max_dist: int = -1) -> FloodM
 
 ## Nearest reachable spot from which a dwarf can work on a tile, or NO_SPOT.
 ## With include_self the tile itself counts if it can be stood on.
-static func best_access(flood_map: FloodMap, tile_x: int, tile_y: int, include_self: bool) -> Vector2i:
+## With from_below, standing directly under the tile counts too (for digging overhead).
+static func best_access(flood_map: FloodMap, tile_x: int, tile_y: int, include_self: bool, from_below: bool = false) -> Vector2i:
 	var best := NO_SPOT
 	var best_dist: int = -1
 	if include_self:
 		best_dist = flood_map.distance_to(tile_x, tile_y)
 		if best_dist >= 0:
 			best = Vector2i(tile_x, tile_y)
+	if from_below:
+		var under: int = flood_map.distance_to(tile_x, tile_y + 2)
+		if under >= 0 and (best_dist < 0 or under < best_dist):
+			best_dist = under
+			best = Vector2i(tile_x, tile_y + 2)
 	for side in 2:
 		var sx: int = tile_x + side * 2 - 1
 		for offset in 4:

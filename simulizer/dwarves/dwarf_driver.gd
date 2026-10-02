@@ -287,7 +287,7 @@ func _try_work(sim: Simulation, dwarf: Dwarf, flood_map: FloodMap, jobs: Array[J
 			continue
 		var removing: bool = _must_work_from_beside(job)
 		# Nobody takes down what they are standing on.
-		var spot: Vector2i = Pathfinder.best_access(flood_map, job.tile.x, job.tile.y, stand_on_tile and not removing)
+		var spot: Vector2i = Pathfinder.best_access(flood_map, job.tile.x, job.tile.y, stand_on_tile and not removing, job.kind == Job.Kind.DIG)
 		if spot == Pathfinder.NO_SPOT:
 			continue
 		# Nearest first; among equals take the lowest tile so balls land on the floor.
@@ -339,7 +339,9 @@ func _start_job(sim: Simulation, dwarf: Dwarf, job: Job, path: Array[Vector2i]) 
 
 func _begin_work(sim: Simulation, dwarf: Dwarf, job: Job) -> void:
 	var in_position: bool = Pathfinder.can_reach(dwarf.pos, job.tile)
-	if job.kind != Job.Kind.DIG and not _must_work_from_beside(job):
+	if job.kind == Job.Kind.DIG:
+		in_position = Pathfinder.can_dig_from(dwarf.pos, job.tile)
+	elif not _must_work_from_beside(job):
 		in_position = Pathfinder.can_access(dwarf.pos, job.tile)
 	if not in_position or not _is_job_valid(sim, job):
 		_abandon_job(sim, dwarf, true)

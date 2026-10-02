@@ -170,3 +170,38 @@ func test_tall_room_is_dug_out_with_scaffolding_end_to_end() -> void:
 			assert_true(_sim.grid.is_open(x, y), "tile %d,%d" % [x, y])
 	assert_eq(_scaffold_count(), 0, "all towers taken down")
 	assert_true(Pathfinder.can_stand(_sim.grid, _dwarf.pos.x, _dwarf.pos.y))
+
+# --- Digging overhead ---
+
+func test_low_ceiling_is_dug_from_one_tile_of_scaffolding_underneath() -> void:
+	# The entry room's ceiling is row 3: three above the feet at row 6, one too
+	# high for the floor. One tile of scaffolding under it is enough.
+	var sim := SimFactory.make_sim()
+	var dwarf := sim.hire_dwarf()
+	SimFactory.place_dwarf(dwarf, Vector2i(11, 6))
+	sim.mark_dig(Rect2i(11, 3, 1, 1), true)
+	var most: int = 0
+	for i in 400:
+		sim.tick()
+		var count: int = 0
+		for x in range(9, 15):
+			if sim.grid.has_scaffold(x, 6):
+				count += 1
+		most = maxi(most, count)
+	assert_true(sim.grid.is_open(11, 3))
+	assert_eq(most, 1)
+
+func test_one_tower_serves_three_columns_of_ceiling() -> void:
+	# Raise the chamber ceiling (row 13) over three columns, x 10..12.
+	_sim.mark_dig(Rect2i(10, 13, 3, 1), true)
+	var columns_used: Dictionary[int, bool] = {}
+	for i in 2500:
+		_sim.tick()
+		for y in _sim.grid.height:
+			for x in range(9, 15):
+				if _sim.grid.has_scaffold(x, y):
+					columns_used[x] = true
+	for x in range(10, 13):
+		assert_true(_sim.grid.is_open(x, 13), "ceiling tile %d" % x)
+	assert_eq(columns_used.size(), 1, "one tower: left, straight up and right from its top")
+	assert_eq(_scaffold_count(), 0)

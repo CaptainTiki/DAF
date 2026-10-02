@@ -64,6 +64,15 @@ func test_reach_is_the_four_tiles_in_the_next_column() -> void:
 	assert_false(Pathfinder.can_reach(from, Vector2i(12, 6)), "two columns away")
 
 
+func test_digging_also_reaches_the_tile_straight_overhead() -> void:
+	var from := Vector2i(10, 6)
+	assert_true(Pathfinder.can_dig_from(from, Vector2i(10, 4)), "directly above the head")
+	assert_true(Pathfinder.can_dig_from(from, Vector2i(11, 5)), "and everything in normal reach")
+	assert_false(Pathfinder.can_dig_from(from, Vector2i(10, 3)), "not two above the head")
+	assert_false(Pathfinder.can_dig_from(from, Vector2i(10, 7)), "never the tile underfoot")
+	assert_false(Pathfinder.can_reach(from, Vector2i(10, 4)), "carrying and building still work from beside only")
+
+
 func test_flood_covers_the_room_and_gives_distances() -> void:
 	var map := Pathfinder.flood(_grid, Vector2i(9, 6))
 	assert_eq(map.distance_to(9, 6), 0)

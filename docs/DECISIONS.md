@@ -46,6 +46,8 @@ Judgment calls made while building, newest milestone first. Each entry says what
 ### Scaffolding
 - Scaffolding is a third structure: a platform like a floor that can also be climbed straight up and down. Climbing is the only vertical move in the game.
 - Dwarves put it up by themselves. When a dwarf looks for digging and finds none in reach, the `Scaffolder` looks for a marked tile that is only out of reach because it is too high, and plans a tower beside it: straight up from a floor the dwarf can walk to, just tall enough to stand on and reach the tile.
+- For digging only, a dwarf also reaches the tile straight above their head, as well as the column on each side. So from the top of a tower one dwarf digs three columns of ceiling. Carrying and building still work from beside only.
+- A tower can stand beside the tile or directly under it. The spot that brings the most marked tiles into reach is chosen, then the shorter tower.
 - The lowest stance that reaches is used, so towers are as short as they can be. The tallest allowed is 8 tiles (`scaffold_max_height`).
 - A tower goes up from the bottom, each tile built by a dwarf standing in it. It costs 1 wood per tile.
 - Every 2 seconds, towers with nothing marked for digging in reach are marked to come down. They come down from the top, and the wood drops at the foot.
