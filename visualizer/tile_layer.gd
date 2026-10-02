@@ -54,9 +54,7 @@ func refresh_tile(x: int, y: int) -> void:
 		return
 	var color: Color = _sim.material_def(material).color
 	var lane: float = ViewSpace.LANE_SOLID
-	# A stair tile is drawn cut away even if the rock in front is intact, so the
-	# stairs behind it can be seen.
-	if _grid.is_open(x, y) or _grid.has_stair(x, y):
+	if _grid.is_open(x, y) or is_stairwell(_grid, x, y):
 		color = color * BACK_WALL_SHADE
 		lane = ViewSpace.LANE_BACK_WALL
 	elif not reveal_all and not _is_exposed(x, y):
@@ -72,6 +70,13 @@ func refresh_tile(x: int, y: int) -> void:
 func _is_exposed(x: int, y: int) -> bool:
 	for ny in range(y - 1, y + 2):
 		for nx in range(x - 1, x + 2):
-			if _grid.is_open(nx, ny) or _grid.has_stair(nx, ny):
+			if _grid.is_open(nx, ny) or is_stairwell(_grid, nx, ny):
 				return true
 	return false
+
+
+## A stair tile or the head space above one. Stairs run behind the rock, so
+## these are drawn cut away, two tiles tall, even where the rock in front is
+## intact: the dwarf on the stairs is seen whole, never with a head in the dirt.
+static func is_stairwell(grid: TileGrid, x: int, y: int) -> bool:
+	return grid.has_stair(x, y) or grid.has_stair(x, y + 1)

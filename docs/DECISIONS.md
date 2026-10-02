@@ -41,11 +41,14 @@ Judgment calls made while building, newest milestone first. Each entry says what
 - The Stairs tool snaps a drag to a 45 degree line. One flight between layers is 3 tiles.
 - Stairs cost nothing but time (`stair_build_ticks`). Materials come with the order chain.
 - Cancelling removes plans only. Built stairs can't be removed yet; that needs a demolish tool that won't strand a dwarf inside rock.
-- A stair tile is drawn cut away, even where the rock in front is intact, so the flight can be seen.
+- A stair tile and the head space above it are drawn cut away, even where the rock in front is intact. The dwarf on the stairs is seen whole.
+- Where that cuts into a floor, a thin walkway strip is kept along the top, so dwarves crossing in front have something underfoot.
+- In the front lane a dwarf always needs feet and head tiles open. Stairs are the one exception, because their space is behind the rock.
 
 ### Crowding
 - When picking dig or build work, a spot another dwarf is already using counts as 4 steps further away. Dwarves spread along the work face when there is a choice.
-- Dwarves can still share a tile when it is the only place to work from. The view draws them slightly apart.
+- Dwarves can still share a tile when it is the only place to work from. Each stands at its own fixed spot within the tile (up to 0.3 of a tile either side of centre), so a group reads as a group.
+- Each dwarf has a personal tempo, rolled at hiring: a pause of 0 to 0.3 s before acting on a decision, and walking and working up to 15% faster or slower. Pick swings also start at different points. Tunable with `think_ticks_max` and `pace_variation`.
 - Idle dwarves sharing a tile move apart: all but the earliest hired wander off.
 
 ### Storage

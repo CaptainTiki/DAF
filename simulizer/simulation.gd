@@ -60,6 +60,8 @@ func hire_dwarf() -> Dwarf:
 	dwarf.pos = Vector2i(rng.randi_range(room.position.x, room.end.x - 1), room.end.y - 1)
 	dwarf.from_pos = dwarf.pos
 	dwarf.facing = 1 if rng.randf() < 0.5 else -1
+	dwarf.think_ticks = rng.randi_range(0, config.think_ticks_max)
+	dwarf.pace = 1.0 + rng.randf_range(-config.pace_variation, config.pace_variation)
 	dwarves.append(dwarf)
 	dwarf_hired.emit(dwarf)
 	return dwarf

@@ -38,7 +38,7 @@ func _fall(sim: Simulation, dwarf: Dwarf) -> void:
 
 func _go_idle(dwarf: Dwarf) -> void:
 	dwarf.activity = Dwarf.Activity.IDLE
-	dwarf.idle_ticks_left = 1
+	dwarf.idle_ticks_left = 1 + dwarf.think_ticks
 	dwarf.from_pos = dwarf.pos
 	dwarf.path.clear()
 
@@ -155,8 +155,8 @@ func _tick_walk(sim: Simulation, dwarf: Dwarf) -> void:
 	dwarf.from_pos = dwarf.pos
 	dwarf.pos = next
 	dwarf.facing = signi(next.x - dwarf.from_pos.x)
-	dwarf.move_ticks_left = sim.config.walk_ticks
-	dwarf.move_ticks_total = sim.config.walk_ticks
+	dwarf.move_ticks_left = _paced(dwarf, sim.config.walk_ticks)
+	dwarf.move_ticks_total = dwarf.move_ticks_left
 
 
 func _arrive(sim: Simulation, dwarf: Dwarf) -> void:
@@ -185,7 +185,7 @@ func _begin_dig(sim: Simulation, dwarf: Dwarf, job: Job) -> void:
 	dwarf.activity = Dwarf.Activity.DIG
 	dwarf.work_tile = tile
 	dwarf.work_progress = 0
-	dwarf.work_total = sim.material_def(sim.grid.material_at(tile.x, tile.y)).dig_ticks
+	dwarf.work_total = _paced(dwarf, sim.material_def(sim.grid.material_at(tile.x, tile.y)).dig_ticks)
 	dwarf.facing = signi(tile.x - dwarf.pos.x)
 
 
@@ -197,7 +197,7 @@ func _begin_build(sim: Simulation, dwarf: Dwarf, job: Job) -> void:
 	dwarf.activity = Dwarf.Activity.BUILD
 	dwarf.work_tile = tile
 	dwarf.work_progress = 0
-	dwarf.work_total = sim.config.stair_build_ticks
+	dwarf.work_total = _paced(dwarf, sim.config.stair_build_ticks)
 	dwarf.facing = signi(tile.x - dwarf.pos.x)
 
 
@@ -278,6 +278,11 @@ func _abandon_job(sim: Simulation, dwarf: Dwarf, cooldown: bool) -> void:
 			job.retry_tick = sim.tick_count + sim.config.job_retry_ticks
 		sim.board.release(job)
 	_go_idle(dwarf)
+
+
+## A duration adjusted for this dwarf's personal pace.
+func _paced(dwarf: Dwarf, ticks: int) -> int:
+	return maxi(1, roundi(ticks * dwarf.pace))
 
 
 ## How many other dwarves are at this spot or walking to it.

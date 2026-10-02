@@ -9,6 +9,10 @@ var display_name: String
 ## Tiles dug so far. Beards grow with experience.
 var experience: int = 0
 var beard_length: float = 0.0
+## Personal tempo, fixed at hiring. think_ticks is the pause before acting on a
+## new decision; pace multiplies how long walking and working take.
+var think_ticks: int = 0
+var pace: float = 1.0
 
 ## Feet tile. The head is the tile above.
 var pos: Vector2i

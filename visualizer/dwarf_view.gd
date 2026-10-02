@@ -12,7 +12,10 @@ const BEARD_COLORS: Array[Color] = [
 const PICK_REST_ANGLE: float = -0.5
 const SWING_TICKS: float = 10.0
 const BOB_HEIGHT: float = 0.07
-const SHARED_TILE_SPREAD: float = 0.16
+## Dwarves stand anywhere within this fraction of a tile, so a group sharing a
+## tile reads as a group.
+const STAND_SPREAD: float = 0.6
+const GOLDEN_RATIO: float = 0.618034
 const STAIR_LANE: float = ViewSpace.LANE_STRUCTURE + 0.5
 
 @onready var _rig: Node3D = $Rig
@@ -26,10 +29,17 @@ var _dwarf: Dwarf
 var _carried_material := StandardMaterial3D.new()
 var _carried_item_material: int = -1
 var _at_rest: bool = false
+## Sideways standing position within the tile, in tiles.
+var _stand_offset: float = 0.0
+## Where in the swing this dwarf starts, 0..1.
+var _swing_phase: float = 0.0
 
 
 func bind(dwarf: Dwarf) -> void:
 	_dwarf = dwarf
+	# Golden-ratio steps keep consecutive dwarves well apart from each other.
+	_stand_offset = (fposmod(dwarf.id * GOLDEN_RATIO, 1.0) - 0.5) * STAND_SPREAD
+	_swing_phase = fposmod(dwarf.id * GOLDEN_RATIO * 3.0, 1.0)
 	_body.material_override = _flat_material(TUNIC_COLORS[dwarf.id % TUNIC_COLORS.size()])
 	_beard.material_override = _flat_material(BEARD_COLORS[(dwarf.id * 7 + 3) % BEARD_COLORS.size()])
 	_carried_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -57,14 +67,15 @@ func refresh(sim: Simulation, alpha: float) -> void:
 	var lane: float = STAIR_LANE if on_stairs else ViewSpace.LANE_DWARF
 	var origin: Vector3 = ViewSpace.tile_floor(tile.x, tile.y, lane + (_dwarf.id % 8) * 0.01)
 	# Dwarves working from the same tile stand side by side, not inside each other.
-	origin.x += (_dwarf.id % 3 - 1) * SHARED_TILE_SPREAD
+	origin.x += _stand_offset
 	if moving and _dwarf.activity == Dwarf.Activity.WALK:
 		origin.y += absf(sin(fraction * PI)) * BOB_HEIGHT
 	position = origin
 	_rig.basis = Basis.from_scale(Vector3(_dwarf.facing, 1.0, 1.0))
 
 	if digging:
-		var swing: float = fmod(_dwarf.work_progress + alpha, SWING_TICKS) / SWING_TICKS
+		var swing_ticks: float = SWING_TICKS * _dwarf.pace
+		var swing: float = fmod(_dwarf.work_progress + alpha + _swing_phase * swing_ticks, swing_ticks) / swing_ticks
 		_pick.rotation.z = lerpf(0.7, -1.3, swing * swing)
 		_progress.visible = true
 		_progress.global_position = ViewSpace.tile_center(_dwarf.work_tile.x, _dwarf.work_tile.y, ViewSpace.LANE_OVERLAY + 0.1) + Vector3(0.0, 0.3, 0.0)

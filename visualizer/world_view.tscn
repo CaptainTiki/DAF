@@ -74,6 +74,11 @@ transform_format = 1
 use_colors = true
 mesh = SubResource("mesh_stair")
 
+[sub_resource type="MultiMesh" id="mm_walkways"]
+transform_format = 1
+use_colors = true
+mesh = SubResource("mesh_tile")
+
 [sub_resource type="MultiMesh" id="mm_tile_selection"]
 transform_format = 1
 use_colors = true
@@ -126,6 +131,9 @@ multimesh = SubResource("mm_pallet_bases")
 [node name="Structures" type="MultiMeshInstance3D" parent="."]
 multimesh = SubResource("mm_structures")
 script = ExtResource("7_structures")
+
+[node name="Walkways" type="MultiMeshInstance3D" parent="Structures"]
+multimesh = SubResource("mm_walkways")
 
 [node name="Dwarves" type="Node3D" parent="."]
 

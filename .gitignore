@@ -4,3 +4,5 @@
 
 # Dev tooling (scripts, scratch, external tools) - never part of the game
 .tools/
+
+addons/gut/

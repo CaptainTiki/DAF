@@ -33,6 +33,8 @@ static func make_config() -> SimConfig:
 	config.walk_ticks = 2
 	config.idle_retry_ticks = 2
 	config.wander_chance = 0.0
+	config.think_ticks_max = 0
+	config.pace_variation = 0.0
 	config.job_retry_ticks = 10
 	config.pallet_capacity = 3
 	config.haul_priority_threshold = 0

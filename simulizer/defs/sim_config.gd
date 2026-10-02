@@ -17,6 +17,11 @@ extends Resource
 ## How long a job that just failed is left alone before anyone retries it.
 @export var job_retry_ticks: int = 100
 @export var dwarf_names: PackedStringArray = []
+## Each dwarf gets a fixed pause of 0..this many ticks before acting on a new
+## decision, so a group never moves as one.
+@export var think_ticks_max: int = 6
+## Each dwarf walks and works this much faster or slower than average (0.15 = up to 15%).
+@export_range(0.0, 0.5) var pace_variation: float = 0.15
 
 @export_group("Jobs and storage")
 ## Ticks to build one tile of stairs.
