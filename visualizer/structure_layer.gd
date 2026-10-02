@@ -3,9 +3,10 @@ extends MultiMeshInstance3D
 ## Draws built structures in the back lane. For now that means stairs: one
 ## sloped plank per stair tile, running through the point where a dwarf's feet go.
 ##
-## Where a stairwell passes behind a floor, the floor is drawn cut away to show
-## the stairs. A thin walkway strip is kept along the top of that floor tile, so
-## dwarves crossing in front have something visible underfoot.
+## Where a stairwell passes through a floor, the floor is drawn cut away to show
+## the stairs, with a thin walkway strip along the top that dwarves cross on.
+## The walkway is part of the stairs: it is there whether the floor's rock is
+## intact or has been dug out.
 
 const STAIR_COLOR := Color(0.62, 0.45, 0.25)
 ## Drop the plank slightly so feet rest on top of it.
@@ -62,9 +63,9 @@ func _rebuild() -> void:
 	walkways.visible_instance_count = walkway_count
 
 
-## A cut-away tile needs a strip if its rock is still there and someone can walk on top.
+## The walkway is drawn wherever the sim has one and there is room above to walk.
 func _needs_walkway(x: int, y: int) -> bool:
-	return _grid.is_solid(x, y) and _grid.is_open(x, y - 1)
+	return _grid.has_walkway(x, y) and _grid.is_open(x, y - 1)
 
 
 func _set_walkway(mesh: MultiMesh, index: int, x: int, y: int) -> void:

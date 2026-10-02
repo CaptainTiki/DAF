@@ -398,7 +398,7 @@ func _tick_items() -> void:
 			item.move_ticks_left -= 1
 			if item.move_ticks_left > 0:
 				continue
-		if grid.is_open(item.pos.x, item.pos.y + 1):
+		if not grid.is_ground(item.pos.x, item.pos.y + 1):
 			item.from_pos = item.pos
 			item.pos.y += 1
 			item.move_ticks_left = config.fall_ticks

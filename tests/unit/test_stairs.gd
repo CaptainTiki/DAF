@@ -57,6 +57,39 @@ func test_floor_over_a_stair_stays_walkable() -> void:
 	assert_true(Pathfinder.can_step(_sim.grid, 13, 6, 14, 6))
 
 
+func test_floor_dug_out_around_a_stairwell_can_still_be_crossed() -> void:
+	_build_flight()
+	# The stairwell passes through the floor (row 7) at columns 13 and 14.
+	# Dig both floor tiles away; the walkway that comes with the stairs remains.
+	_sim.grid.set_open(13, 7)
+	_sim.grid.set_open(14, 7)
+	assert_true(_sim.grid.has_walkway(13, 7))
+	assert_true(_sim.grid.has_walkway(14, 7), "the head space of the next stair")
+	assert_false(_sim.grid.has_walkway(15, 7), "no stairwell here")
+	assert_true(Pathfinder.can_stand(_sim.grid, 13, 6))
+	assert_true(Pathfinder.can_step(_sim.grid, 12, 6, 13, 6), "straight across, no dip")
+	assert_true(Pathfinder.can_step(_sim.grid, 13, 6, 14, 6))
+	SimFactory.place_dwarf(_dwarf, Vector2i(13, 6))
+	SimFactory.run(_sim, 30)
+	assert_eq(_dwarf.pos, Vector2i(13, 6), "and nobody falls in")
+
+
+func test_items_rest_on_a_stairwell_walkway() -> void:
+	_build_flight()
+	_sim.grid.set_open(13, 7)
+	var item: Item = _sim.spawn_item(SimFactory.DIRT_BALL, Vector2i(13, 5))
+	SimFactory.run(_sim, 30)
+	assert_eq(item.pos, Vector2i(13, 6))
+	assert_true(item.settled)
+
+
+func test_stairs_in_mid_air_have_no_walkway() -> void:
+	_build_flight()
+	# Row 8 and 9 are not floor rows, so a stair there is just a stair.
+	assert_false(_sim.grid.has_walkway(14, 8))
+	assert_false(_sim.grid.has_walkway(15, 9))
+
+
 func test_stairs_can_be_walked_through_rock() -> void:
 	_build_flight()
 	var map := Pathfinder.flood(_sim.grid, Vector2i(10, 6))

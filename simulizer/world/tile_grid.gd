@@ -115,6 +115,25 @@ func set_structure(x: int, y: int, structure: int) -> void:
 	_structures[y * width + x] = structure
 
 
+## True for the row that forms a layer's floor, and for the topsoil row that is
+## the floor of the surface.
+func is_floor_row(y: int) -> bool:
+	if y == first_layer_row - 1:
+		return true
+	return y >= first_layer_row and (y - first_layer_row) % layer_height == layer_height - 1
+
+
+## True where a stairwell passes through a floor. The stairs come with a
+## walkway there, so the floor can be crossed whether or not its rock is left.
+func has_walkway(x: int, y: int) -> bool:
+	return is_floor_row(y) and (has_stair(x, y) or has_stair(x, y + 1))
+
+
+## Something to stand on: rock, or the walkway over a stairwell.
+func is_ground(x: int, y: int) -> bool:
+	return is_solid(x, y) or has_walkway(x, y)
+
+
 func layer_count() -> int:
 	@warning_ignore("integer_division")
 	return (height - first_layer_row) / layer_height

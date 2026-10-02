@@ -6,9 +6,9 @@ extends RefCounted
 const NO_SPOT := Vector2i(-1, -1)
 
 
-## Feet and head tiles open, solid ground underneath.
+## Feet and head tiles open, ground underneath.
 static func can_stand(grid: TileGrid, x: int, y: int) -> bool:
-	return grid.is_open(x, y) and grid.is_open(x, y - 1) and grid.is_solid(x, y + 1)
+	return grid.is_open(x, y) and grid.is_open(x, y - 1) and grid.is_ground(x, y + 1)
 
 
 ## A dwarf can be here: standing on the ground, or on a stair in the back lane.
@@ -18,7 +18,7 @@ static func can_occupy(grid: TileGrid, x: int, y: int) -> bool:
 
 ## Something holds a dwarf up here: ground underfoot, or a stair.
 static func is_supported(grid: TileGrid, x: int, y: int) -> bool:
-	return grid.is_solid(x, y + 1) or grid.has_stair(x, y)
+	return grid.is_ground(x, y + 1) or grid.has_stair(x, y)
 
 
 ## One move: sideways, or sideways and one tile up or down.

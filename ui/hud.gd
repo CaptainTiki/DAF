@@ -16,6 +16,9 @@ signal planned_furniture_toggled(enabled: bool)
 signal window_mode_requested(mode: WindowController.Mode)
 signal layer_step_requested(direction: int)
 
+@onready var _bar: HBoxContainer = $Bar
+@onready var _view_column: VBoxContainer = $ViewColumn
+@onready var _window_column: VBoxContainer = $WindowColumn
 @onready var _dig_button: Button = $Bar/DigButton
 @onready var _stockpile_button: Button = $Bar/StockpileButton
 @onready var _stairs_button: Button = $Bar/StairsButton
@@ -43,6 +46,13 @@ signal layer_step_requested(direction: int)
 @onready var _reveal_check: CheckButton = $DebugPanel/Row/RevealCheck
 
 const SPEEDS: Array[float] = [1.0, 2.0, 3.0, 4.0, 16.0]
+const BAR_MARGIN: float = 4.0
+const BAR_HEIGHT: float = 26.0
+const SMALL_PANEL_HEIGHT: float = 34.0
+const REQUESTS_PANEL_HEIGHT: float = 112.0
+const COLUMN_MARGIN: float = 2.0
+## Height of one icon button when the columns don't fill the window's height.
+const ICON_BUTTON_HEIGHT: float = 34.0
 
 var _sim: Simulation
 var _tool_buttons: Dictionary[ToolController.Tool, Button] = {}
@@ -100,6 +110,7 @@ func set_layer(layer: int) -> void:
 
 func set_window_mode(mode: WindowController.Mode) -> void:
 	var layered: bool = mode != WindowController.Mode.FULLSCREEN
+	_dock(not layered)
 	_layer_up.visible = layered
 	_layer_label.visible = layered
 	_layer_down.visible = layered
@@ -108,6 +119,31 @@ func set_window_mode(mode: WindowController.Mode) -> void:
 	_corner_button.disabled = mode == WindowController.Mode.CORNER
 	# The corner window is too narrow for the readout.
 	_totals.visible = mode != WindowController.Mode.CORNER
+
+
+## Arranges the HUD for the window. In the strip and corner the toolbar runs
+## along the bottom and the icon columns fill the right edge. In full screen
+## everything keeps the same size and sits at the top: tools top left, icons
+## top right.
+func _dock(at_top: bool) -> void:
+	_pin(_bar, at_top, BAR_MARGIN, BAR_HEIGHT)
+	var panel_gap: float = BAR_MARGIN + BAR_HEIGHT + BAR_MARGIN
+	_pin(_room_panel, at_top, panel_gap, SMALL_PANEL_HEIGHT)
+	_pin(_debug_panel, at_top, panel_gap, SMALL_PANEL_HEIGHT)
+	_pin(_requests_panel, at_top, panel_gap, REQUESTS_PANEL_HEIGHT)
+	for column: VBoxContainer in [_view_column, _window_column]:
+		column.anchor_bottom = 0.0 if at_top else 1.0
+		column.offset_top = COLUMN_MARGIN
+		column.offset_bottom = COLUMN_MARGIN + column.get_child_count() * ICON_BUTTON_HEIGHT if at_top else -COLUMN_MARGIN
+
+
+## Fixes a control's height and places it a gap from the top or bottom edge.
+func _pin(control: Control, at_top: bool, gap: float, height: float) -> void:
+	var edge: float = 0.0 if at_top else 1.0
+	control.anchor_top = edge
+	control.anchor_bottom = edge
+	control.offset_top = gap if at_top else -gap - height
+	control.offset_bottom = gap + height if at_top else -gap
 
 
 func set_reveal(enabled: bool) -> void:
