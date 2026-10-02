@@ -17,6 +17,15 @@ const STONE_BALL: int = 1
 const WOOD: int = 2
 const CHAIR: int = 3
 const TABLE: int = 4
+const BED: int = 5
+
+# Room type indices in config.rooms.
+const CARPENTRY: int = 0
+const HALL: int = 1
+const BUNK_ROOM: int = 2
+
+# Need indices.
+const SLEEP: int = 0
 
 
 static func make_config() -> SimConfig:
@@ -25,6 +34,7 @@ static func make_config() -> SimConfig:
 	var wood := _item(&"wood", "Wood", 1, ItemDef.Shape.LOG)
 	var chair := _item(&"chair", "Chair", 3, ItemDef.Shape.CHAIR)
 	var table := _item(&"table", "Table", 5, ItemDef.Shape.TABLE)
+	var bed := _item(&"bed", "Bunk", 5, ItemDef.Shape.BED)
 
 	var dirt := MaterialDef.new()
 	dirt.id = &"dirt"
@@ -51,9 +61,10 @@ static func make_config() -> SimConfig:
 
 	var config := SimConfig.new()
 	config.materials = [dirt, stone]
-	config.items = [dirt_ball, stone_ball, wood, chair, table]
-	config.recipes = [_recipe(wood, 1, chair, 10), _recipe(wood, 2, table, 10)]
-	config.rooms = [make_carpentry(wood), make_hall(chair, table)]
+	config.items = [dirt_ball, stone_ball, wood, chair, table, bed]
+	config.recipes = [_recipe(wood, 1, chair, 10), _recipe(wood, 2, table, 10), _recipe(wood, 2, bed, 10)]
+	config.rooms = [make_carpentry(wood), make_hall(chair, table), make_bunk_room(bed)]
+	config.needs = [make_sleep_need()]
 	config.world_gen = world
 	config.starting_item = null
 	config.structure_item = null
@@ -136,6 +147,31 @@ static func make_hall(chair: ItemDef, table: ItemDef) -> RoomDef:
 	def.pattern_width = 1
 	def.slots = [chair_slot, table_slot]
 	return def
+
+
+## A bunk on every tile. Bunks satisfy the sleep need.
+static func make_bunk_room(bed: ItemDef) -> RoomDef:
+	var bed_slot := SlotDef.new()
+	bed_slot.item = bed
+	bed_slot.satisfies = &"sleep"
+	var def := RoomDef.new()
+	def.id = &"bunk_room"
+	def.display_name = "Bunk room"
+	def.min_width = 2
+	def.pattern_width = 1
+	def.slots = [bed_slot]
+	return def
+
+
+## Sleep, sped up: runs out in 200 ticks, restored in 50, sought below 35%.
+static func make_sleep_need() -> NeedDef:
+	var need := NeedDef.new()
+	need.id = &"sleep"
+	need.display_name = "Sleep"
+	need.decay_ticks = 200
+	need.restore_ticks = 50
+	need.seek_below = 0.35
+	return need
 
 
 static func _item(id: StringName, display_name: String, size: int, shape: ItemDef.Shape) -> ItemDef:

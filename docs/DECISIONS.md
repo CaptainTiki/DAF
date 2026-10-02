@@ -54,6 +54,18 @@ Judgment calls made while building, newest milestone first. Each entry says what
 - A tower only goes straight up from a floor. It doesn't bridge gaps or rescue a trapped dwarf; those stay as stairs and floors the player places.
 - There is no player-placed scaffolding yet.
 
+### Needs and mood
+- A need is data (`NeedDef`): how fast it runs down, how fast it is restored, when a dwarf goes to see to it, and what they say. Sleep is the only one so far.
+- A need is asleep until something in the hold can satisfy it. With no bunk built, nobody gets tired. This replaces any "turn needs on" switch.
+- A room slot says which need it satisfies (`satisfies` on the slot). A bunk satisfies sleep.
+- Sleep runs out in 8 minutes and is restored in 1. A dwarf goes to bed between jobs once it drops below 35%. A sleeping dwarf does not get up for work.
+- A bunk belongs to the first dwarf who uses it, and they go back to the same one.
+- Mood has three levels. Bad: some need has run out. Good: a need is in play and all are above half. Ok: otherwise, including a hold with no needs in play.
+- Bad mood makes walking and working take 30% longer; good mood 15% less (`bad_mood_pace`, `good_mood_pace`).
+- There is no death, no arrivals and no hunger, drink or fun yet.
+- A dwarf with no bunk free says "tired!" and reports it in the requests log.
+- Mood is not shown anywhere yet, other than by what a dwarf says.
+
 ### Dwarves speak
 - A dwarf has a `speech` string, drawn in a bubble over their head. For now the only thing said is "!".
 - An idle dwarf checks every 5 seconds whether they can still walk back to where the dwarves arrived. One who can't is trapped: they show "!" and post "I'm trapped! Build stairs to me." in the requests log. It clears once a way out exists.

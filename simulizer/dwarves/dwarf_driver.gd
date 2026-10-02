@@ -14,8 +14,16 @@ extends RefCounted
 ## Job score added per other dwarf using the same work spot. 1000 equals one step.
 const CROWDED_SPOT_PENALTY: int = 4000
 
+var _needs := DwarfNeeds.new()
+
 
 func tick(sim: Simulation, dwarf: Dwarf) -> void:
+	_act(sim, dwarf)
+	# After acting, so mood and speech match what the dwarf is doing this tick.
+	_needs.tick(sim, dwarf)
+
+
+func _act(sim: Simulation, dwarf: Dwarf) -> void:
 	if dwarf.move_ticks_left > 0:
 		dwarf.move_ticks_left -= 1
 		if dwarf.move_ticks_left > 0:
@@ -34,6 +42,8 @@ func tick(sim: Simulation, dwarf: Dwarf) -> void:
 			_tick_work(sim, dwarf)
 		Dwarf.Activity.SIT:
 			_tick_sit(sim, dwarf)
+		Dwarf.Activity.REST:
+			_tick_rest(sim, dwarf)
 
 
 # --- Moving ---
@@ -69,14 +79,16 @@ func _tick_walk(sim: Simulation, dwarf: Dwarf) -> void:
 	dwarf.pos = next
 	if next.x != dwarf.from_pos.x:
 		dwarf.facing = signi(next.x - dwarf.from_pos.x)
-	dwarf.move_ticks_left = _paced(dwarf, sim.config.walk_ticks)
+	dwarf.move_ticks_left = _paced(sim, dwarf, sim.config.walk_ticks)
 	dwarf.move_ticks_total = dwarf.move_ticks_left
 
 
 func _arrive(sim: Simulation, dwarf: Dwarf) -> void:
 	var job: Job = dwarf.job
 	if job == null:
-		if dwarf.seat != null and _begin_sit(sim, dwarf):
+		if dwarf.seat != null and dwarf.restoring >= 0 and _begin_rest(dwarf):
+			return
+		if dwarf.seat != null and dwarf.restoring < 0 and _begin_sit(sim, dwarf):
 			return
 		_leave_seat(dwarf)
 		_go_idle(dwarf)
@@ -99,6 +111,9 @@ func _tick_idle(sim: Simulation, dwarf: Dwarf) -> void:
 	var config: SimConfig = sim.config
 	@warning_ignore("integer_division")
 	dwarf.idle_ticks_left = config.idle_retry_ticks + sim.rng.randi_range(0, config.idle_retry_ticks / 2)
+	# A dwarf between jobs sees to their own needs before taking another.
+	if _try_satisfy_need(sim, dwarf):
+		return
 	if _try_take_job(sim, dwarf):
 		return
 	_check_trapped(sim, dwarf)
@@ -122,7 +137,6 @@ func _check_trapped(sim: Simulation, dwarf: Dwarf) -> void:
 	if Pathfinder.can_occupy(sim.grid, home.x, home.y):
 		trapped = not Pathfinder.flood(sim.grid, dwarf.pos).is_reachable(home.x, home.y)
 	dwarf.trapped = trapped
-	dwarf.speech = "!" if trapped else ""
 	if trapped:
 		sim.requests.post(StringName("trapped_%d" % dwarf.id), dwarf.display_name, "I'm trapped! Build stairs to me.", sim.tick_count, sim.config.request_refresh_ticks)
 
@@ -170,10 +184,60 @@ func _tick_sit(sim: Simulation, dwarf: Dwarf) -> void:
 		_go_idle(dwarf)
 		return
 	if dwarf.sit_ticks_left % sim.config.idle_retry_ticks == 0:
-		_try_take_job(sim, dwarf)
+		if not _try_satisfy_need(sim, dwarf):
+			_try_take_job(sim, dwarf)
+
+
+# --- Needs ---
+
+## Sets off for somewhere to satisfy the most pressing need, if there is one
+## and somewhere to go.
+func _try_satisfy_need(sim: Simulation, dwarf: Dwarf) -> bool:
+	var index: int = _needs.most_pressing(sim, dwarf)
+	if index < 0:
+		return false
+	var need: NeedDef = sim.config.needs[index]
+	var flood_map: FloodMap = Pathfinder.flood(sim.grid, dwarf.pos)
+	var slot: RoomSlot = sim.rooms.find_provider(need.id, dwarf.id, flood_map)
+	if slot == null:
+		sim.requests.post(StringName("no_%s" % need.id), dwarf.display_name, need.no_provider_message, sim.tick_count, sim.config.request_refresh_ticks)
+		return false
+	_leave_seat(dwarf)
+	slot.owner = dwarf.id
+	slot.occupant = dwarf.id
+	dwarf.seat = slot
+	dwarf.restoring = index
+	dwarf.path = flood_map.path_to(slot.tile.x, slot.tile.y)
+	dwarf.activity = Dwarf.Activity.WALK
+	return true
+
+
+func _begin_rest(dwarf: Dwarf) -> bool:
+	var slot: RoomSlot = dwarf.seat
+	if slot.room.removed or not slot.built or slot.occupant != dwarf.id or dwarf.pos != slot.tile:
+		return false
+	dwarf.activity = Dwarf.Activity.REST
+	dwarf.from_pos = dwarf.pos
+	return true
+
+
+## Resting until the need is fully met. Unlike sitting, a resting dwarf does
+## not get up for work.
+func _tick_rest(sim: Simulation, dwarf: Dwarf) -> void:
+	var slot: RoomSlot = dwarf.seat
+	if slot == null or slot.room.removed or dwarf.restoring < 0:
+		_leave_seat(dwarf)
+		_go_idle(dwarf)
+		return
+	var need: NeedDef = sim.config.needs[dwarf.restoring]
+	dwarf.needs[dwarf.restoring] = minf(dwarf.needs[dwarf.restoring] + 1.0 / need.restore_ticks, 1.0)
+	if dwarf.needs[dwarf.restoring] >= 1.0:
+		_leave_seat(dwarf)
+		_go_idle(dwarf)
 
 
 func _leave_seat(dwarf: Dwarf) -> void:
+	dwarf.restoring = -1
 	if dwarf.seat == null:
 		return
 	if dwarf.seat.occupant == dwarf.id:
@@ -349,7 +413,7 @@ func _begin_work(sim: Simulation, dwarf: Dwarf, job: Job) -> void:
 	dwarf.activity = Dwarf.Activity.WORK
 	dwarf.work_tile = job.tile
 	dwarf.work_progress = 0
-	dwarf.work_total = _paced(dwarf, _work_ticks(sim, job))
+	dwarf.work_total = _paced(sim, dwarf, _work_ticks(sim, job))
 	if job.tile.x != dwarf.pos.x:
 		dwarf.facing = signi(job.tile.x - dwarf.pos.x)
 	if job.kind == Job.Kind.CRAFT:
@@ -640,9 +704,9 @@ func _abandon_job(sim: Simulation, dwarf: Dwarf, cooldown: bool) -> void:
 
 # --- Helpers ---
 
-## A duration adjusted for this dwarf's personal pace.
-func _paced(dwarf: Dwarf, ticks: int) -> int:
-	return maxi(1, roundi(ticks * dwarf.pace))
+## A duration adjusted for this dwarf's personal pace and their mood.
+func _paced(sim: Simulation, dwarf: Dwarf, ticks: int) -> int:
+	return maxi(1, roundi(ticks * dwarf.pace * _needs.pace_factor(sim, dwarf)))
 
 
 ## How many other dwarves are at this spot or walking to it.

@@ -20,6 +20,13 @@ static func add_item(batch: BoxBatch, shape: ItemDef.Shape, base: Vector3, color
 			_box(batch, base, Vector3(0.0, 0.7, 0.0), Vector3(1.0, 0.12, 0.3), color, scale)
 			_box(batch, base, Vector3(-0.4, 0.32, 0.0), Vector3(0.1, 0.64, 0.26), color.darkened(0.3), scale)
 			_box(batch, base, Vector3(0.4, 0.32, 0.0), Vector3(0.1, 0.64, 0.26), color.darkened(0.3), scale)
+		ItemDef.Shape.BED:
+			# Frame, mattress, pillow and a headboard.
+			_box(batch, base, Vector3(0.0, 0.18, 0.0), Vector3(0.96, 0.16, 0.5), color.darkened(0.2), scale)
+			_box(batch, base, Vector3(0.0, 0.33, 0.0), Vector3(0.9, 0.14, 0.46), Color(0.82, 0.8, 0.72, color.a), scale)
+			_box(batch, base, Vector3(-0.3, 0.44, 0.0), Vector3(0.24, 0.1, 0.36), Color(0.95, 0.95, 0.9, color.a), scale)
+			_box(batch, base, Vector3(-0.45, 0.4, 0.0), Vector3(0.07, 0.8, 0.5), color, scale)
+			_box(batch, base, Vector3(0.45, 0.25, 0.0), Vector3(0.07, 0.5, 0.5), color, scale)
 		_:
 			_box(batch, base, Vector3(0.0, 0.2, 0.0), Vector3(0.4, 0.4, 0.4), color, scale)
 

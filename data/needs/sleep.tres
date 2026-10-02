@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="NeedDef" format=3]
+
+[ext_resource type="Script" path="res://simulizer/defs/need_def.gd" id="1_def"]
+
+[resource]
+script = ExtResource("1_def")
+id = &"sleep"
+display_name = "Sleep"
+decay_ticks = 9600
+restore_ticks = 1200
+seek_below = 0.35
+using_speech = "Zzz"
+unmet_speech = "tired!"
+no_provider_message = "no free bunk. Build more bunks."

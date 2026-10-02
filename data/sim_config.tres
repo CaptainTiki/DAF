@@ -28,14 +28,20 @@
 [ext_resource type="Resource" path="res://data/rooms/carpentry.tres" id="26_carpentry"]
 [ext_resource type="Resource" path="res://data/rooms/hall.tres" id="27_hall"]
 [ext_resource type="Resource" path="res://data/rooms/mushroom_farm.tres" id="28_farm"]
+[ext_resource type="Resource" path="res://data/items/bed.tres" id="29_i_bed"]
+[ext_resource type="Resource" path="res://data/recipes/bed.tres" id="30_r_bed"]
+[ext_resource type="Resource" path="res://data/rooms/bunk_room.tres" id="31_bunks"]
+[ext_resource type="Script" path="res://simulizer/defs/need_def.gd" id="32_need"]
+[ext_resource type="Resource" path="res://data/needs/sleep.tres" id="33_sleep"]
 
 [resource]
 script = ExtResource("1_config")
 ticks_per_second = 20
 materials = Array[ExtResource("2_material")]([ExtResource("4_dirt"), ExtResource("5_stone"), ExtResource("6_copper"), ExtResource("7_iron"), ExtResource("8_silver"), ExtResource("9_gold"), ExtResource("10_gem")])
-items = Array[ExtResource("11_item")]([ExtResource("12_i_dirt"), ExtResource("13_i_stone"), ExtResource("14_i_copper"), ExtResource("15_i_iron"), ExtResource("16_i_silver"), ExtResource("17_i_gold"), ExtResource("18_i_gem"), ExtResource("19_i_wood"), ExtResource("20_i_chair"), ExtResource("21_i_table")])
-recipes = Array[ExtResource("22_recipe")]([ExtResource("23_r_chair"), ExtResource("24_r_table")])
-rooms = Array[ExtResource("25_room")]([ExtResource("26_carpentry"), ExtResource("27_hall"), ExtResource("28_farm")])
+items = Array[ExtResource("11_item")]([ExtResource("12_i_dirt"), ExtResource("13_i_stone"), ExtResource("14_i_copper"), ExtResource("15_i_iron"), ExtResource("16_i_silver"), ExtResource("17_i_gold"), ExtResource("18_i_gem"), ExtResource("19_i_wood"), ExtResource("20_i_chair"), ExtResource("21_i_table"), ExtResource("29_i_bed")])
+recipes = Array[ExtResource("22_recipe")]([ExtResource("23_r_chair"), ExtResource("24_r_table"), ExtResource("30_r_bed")])
+rooms = Array[ExtResource("25_room")]([ExtResource("26_carpentry"), ExtResource("27_hall"), ExtResource("28_farm"), ExtResource("31_bunks")])
+needs = Array[ExtResource("32_need")]([ExtResource("33_sleep")])
 world_gen = ExtResource("3_world")
 starting_item = ExtResource("19_i_wood")
 starting_item_count = 10
@@ -55,5 +61,7 @@ stair_build_ticks = 50
 floor_build_ticks = 40
 structure_item = ExtResource("19_i_wood")
 structure_item_count = 1
+bad_mood_pace = 1.3
+good_mood_pace = 0.85
 pile_capacity = 10
 request_refresh_ticks = 200

@@ -19,6 +19,11 @@ const GOLDEN_RATIO: float = 0.618034
 const STAIR_LANE: float = ViewSpace.LANE_STRUCTURE + 0.5
 ## How far a sitting dwarf is lifted onto the chair.
 const SEAT_HEIGHT: float = 0.22
+## Lays the rig on its back with the head to the left. The rig is taller than a
+## bunk is long for now, so it is also shrunk to fit.
+const LYING_DOWN := Basis(Vector3(0, 0.55, 0), Vector3(-0.55, 0, 0), Vector3(0, 0, 0.55))
+## Where the lying rig's feet go, relative to the middle of the bunk's base.
+const BED_OFFSET := Vector3(0.42, 0.62, 0.0)
 ## Turns the rig, which faces +X, towards the camera.
 const FACING_CAMERA := Basis(Vector3(0, 0, 1), Vector3(0, 1, 0), Vector3(-1, 0, 0))
 
@@ -64,6 +69,7 @@ func refresh(sim: Simulation, alpha: float) -> void:
 	var moving: bool = _dwarf.move_ticks_left > 0
 	var working: bool = _dwarf.activity == Dwarf.Activity.WORK
 	var sitting: bool = _dwarf.activity == Dwarf.Activity.SIT
+	var resting: bool = _dwarf.activity == Dwarf.Activity.REST
 	# A dwarf standing or sitting still doesn't change, so leave the scene
 	# untouched and let the renderer skip the frame.
 	if not moving and not working and _dwarf.carrying == null:
@@ -79,10 +85,14 @@ func refresh(sim: Simulation, alpha: float) -> void:
 	var grid: TileGrid = sim.grid
 	var on_stairs: bool = grid.has_stair(_dwarf.pos.x, _dwarf.pos.y) or grid.has_stair(_dwarf.from_pos.x, _dwarf.from_pos.y)
 	var lane: float = STAIR_LANE if on_stairs else ViewSpace.LANE_DWARF
-	if sitting:
+	if sitting or resting:
 		lane = ViewSpace.LANE_SEATED
 	var origin: Vector3 = ViewSpace.tile_floor(tile.x, tile.y, lane + (_dwarf.id % 8) * 0.01)
-	if sitting:
+	if resting:
+		# Lying on the bunk, head on the pillow at the left.
+		origin += BED_OFFSET
+		_rig.basis = LYING_DOWN
+	elif sitting:
 		origin.y += SEAT_HEIGHT
 		_rig.basis = FACING_CAMERA
 	else:
@@ -105,7 +115,7 @@ func refresh(sim: Simulation, alpha: float) -> void:
 		_progress.visible = false
 
 	var item: Item = _dwarf.carrying
-	_pick.visible = item == null and not sitting
+	_pick.visible = item == null and not sitting and not resting
 	if item == null:
 		_carried_ball.visible = false
 		_carried_box.visible = false

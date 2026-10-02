@@ -16,5 +16,7 @@ var site: BuildSite
 var station: Station
 var pile: Pile
 var plant: Plant
-## Id of the dwarf sitting here or on the way to sit, or -1.
+## Id of the dwarf this belongs to, or -1. A bed is kept by the first dwarf to use it.
+var owner: int = -1
+## Id of the dwarf using this or on the way to it, or -1.
 var occupant: int = -1

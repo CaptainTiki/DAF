@@ -27,5 +27,8 @@ enum Kind {
 @export var station_type: StringName
 ## FURNITURE: idle dwarves may sit here.
 @export var seat: bool = false
+## FURNITURE: the NeedDef id a dwarf satisfies by using this, such as &"sleep"
+## for a bed. Empty if it satisfies nothing.
+@export var satisfies: StringName
 ## PLANT: what grows here.
 @export var plant: PlantDef

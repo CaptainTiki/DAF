@@ -14,6 +14,8 @@ var stations: Array[Station] = []
 
 var _room_at: Dictionary[Vector2i, Room] = {}
 var _next_id: int = 1
+## Built slots per need id they satisfy. Null when it has to be counted again.
+var _provider_counts: Variant = null
 
 
 func room_at(tile: Vector2i) -> Room:
@@ -94,6 +96,7 @@ func place(sim: Simulation, def: RoomDef, rect: Rect2i) -> Room:
 	for slot: RoomSlot in room.slots:
 		if slot.station != null:
 			slot.station.output = _output_pile_for(slot)
+	_provider_counts = null
 	changed.emit()
 	return room
 
@@ -106,6 +109,7 @@ func remove(sim: Simulation, room: Room) -> void:
 	for slot: RoomSlot in room.slots:
 		_clear_slot(sim, slot)
 	_set_tiles(sim, room.rect, null)
+	_provider_counts = null
 	changed.emit()
 
 
@@ -130,6 +134,7 @@ func slot_built(sim: Simulation, slot: RoomSlot) -> void:
 		station.output = _output_pile_for(slot)
 		slot.station = station
 		stations.append(station)
+	_provider_counts = null
 	changed.emit()
 
 
@@ -168,6 +173,40 @@ func in_production(recipe: RecipeDef) -> int:
 		if station.recipe == recipe:
 			count += 1
 	return count
+
+
+## How many built slots can satisfy a need.
+func provider_count(need_id: StringName) -> int:
+	if _provider_counts == null:
+		var counts: Dictionary[StringName, int] = {}
+		for room: Room in rooms:
+			for slot: RoomSlot in room.slots:
+				if slot.built and slot.def.satisfies != &"":
+					counts[slot.def.satisfies] = counts.get(slot.def.satisfies, 0) + 1
+		_provider_counts = counts
+	return _provider_counts.get(need_id, 0)
+
+
+## Somewhere this dwarf can satisfy a need: their own (a bed they have used
+## before) if it is free and in reach, otherwise the nearest one nobody owns.
+func find_provider(need_id: StringName, dwarf_id: int, flood_map: FloodMap) -> RoomSlot:
+	var best: RoomSlot = null
+	var best_dist: int = 0
+	for room: Room in rooms:
+		for slot: RoomSlot in room.slots:
+			if slot.def.satisfies != need_id or not slot.built or slot.occupant != -1:
+				continue
+			if slot.owner != -1 and slot.owner != dwarf_id:
+				continue
+			var dist: int = flood_map.distance_to(slot.tile.x, slot.tile.y)
+			if dist < 0:
+				continue
+			if slot.owner == dwarf_id:
+				return slot
+			if best == null or dist < best_dist:
+				best = slot
+				best_dist = dist
+	return best
 
 
 ## Nearest free seat the dwarf can walk to, or null.
@@ -265,6 +304,7 @@ func _set_tiles(sim: Simulation, rect: Rect2i, room: Room) -> void:
 
 func _clear_slot(sim: Simulation, slot: RoomSlot) -> void:
 	slot.occupant = -1
+	slot.owner = -1
 	if slot.site != null:
 		sim.cancel_site(slot.site)
 		slot.site = null

@@ -142,6 +142,8 @@ func hire_dwarf() -> Dwarf:
 	dwarf.facing = 1 if rng.randf() < 0.5 else -1
 	dwarf.think_ticks = rng.randi_range(0, config.think_ticks_max)
 	dwarf.pace = 1.0 + rng.randf_range(-config.pace_variation, config.pace_variation)
+	dwarf.needs.resize(config.needs.size())
+	dwarf.needs.fill(1.0)
 	dwarves.append(dwarf)
 	dwarf_hired.emit(dwarf)
 	return dwarf

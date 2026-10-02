@@ -2,7 +2,8 @@ class_name Dwarf
 extends RefCounted
 ## State of one dwarf. Behaviour lives in DwarfDriver.
 
-enum Activity { IDLE, WALK, WORK, FALL, SIT }
+enum Activity { IDLE, WALK, WORK, FALL, SIT, REST }
+enum Mood { BAD, OK, GOOD }
 
 var id: int
 var display_name: String
@@ -40,7 +41,14 @@ var speech: String = ""
 var trapped: bool = false
 var trapped_check_tick: int = 0
 
-## The seat this dwarf is sitting on or walking to, when taking a break.
+## How well each need is met, 0..1, one per entry in SimConfig.needs.
+var needs: PackedFloat32Array
+## Bad slows the dwarf down, good speeds them up.
+var mood: Mood = Mood.OK
+## Index of the need being seen to, while walking to or using something for it. -1 if none.
+var restoring: int = -1
+
+## The seat or bed this dwarf is using or walking to.
 var seat: RoomSlot
 var sit_ticks_left: int = 0
 

@@ -114,8 +114,8 @@ outline_render_priority = 4
 modulate = Color(1, 0.9, 0.25, 1)
 outline_modulate = Color(0.1, 0.05, 0, 1)
 text = "!"
-font_size = 72
-outline_size = 20
+font_size = 44
+outline_size = 14
 
 [node name="Progress" type="MeshInstance3D" parent="."]
 top_level = true

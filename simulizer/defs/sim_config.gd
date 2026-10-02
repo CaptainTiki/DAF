@@ -10,6 +10,8 @@ extends Resource
 @export var recipes: Array[RecipeDef] = []
 ## Room types offered to the player, in picker order.
 @export var rooms: Array[RoomDef] = []
+## What dwarves need from time to time. Need index = position in this array.
+@export var needs: Array[NeedDef] = []
 @export var world_gen: WorldGenConfig
 
 @export_group("Start")
@@ -37,6 +39,12 @@ extends Resource
 @export var think_ticks_max: int = 6
 ## Each dwarf walks and works this much faster or slower than average (0.15 = up to 15%).
 @export_range(0.0, 0.5) var pace_variation: float = 0.15
+
+@export_group("Mood")
+## How much longer walking and working take in a bad mood (1.3 = 30% longer).
+@export var bad_mood_pace: float = 1.3
+## The same for a good mood (0.85 = 15% quicker).
+@export var good_mood_pace: float = 0.85
 
 @export_group("Jobs and storage")
 ## How long a station's craft job is kept for the dwarf whose post it is,
