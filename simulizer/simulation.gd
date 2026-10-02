@@ -10,6 +10,9 @@ signal dwarf_hired(dwarf: Dwarf)
 
 ## How often pending orders are recalculated, in ticks.
 const ORDER_INTERVAL: int = 10
+## How often scaffolding that is no longer needed is looked for, in ticks.
+const SCAFFOLD_INTERVAL: int = 40
+const ALL_STRUCTURES: int = TileGrid.STRUCTURE_STAIR | TileGrid.STRUCTURE_FLOOR | TileGrid.STRUCTURE_SCAFFOLD
 const NO_ITEM: int = -1
 
 var config: SimConfig
@@ -21,6 +24,7 @@ var logistics := Logistics.new()
 var rooms := Rooms.new()
 var plants := Plants.new()
 var orders := Orders.new()
+var scaffolds := Scaffolder.new()
 var requests := RequestLog.new()
 var dwarves: Array[Dwarf] = []
 var items: Dictionary[int, Item] = {}
@@ -64,6 +68,8 @@ func tick() -> void:
 	plants.tick(board)
 	if tick_count % ORDER_INTERVAL == 0:
 		orders.update(self)
+	if tick_count % SCAFFOLD_INTERVAL == 0:
+		scaffolds.clean_up(self)
 	rooms.tick(self)
 	_tick_sites()
 	for dwarf: Dwarf in dwarves:
@@ -208,17 +214,26 @@ func mark_floors(rect: Rect2i, marked: bool) -> int:
 	return _mark_structure(TileGrid.STRUCTURE_FLOOR, tiles, marked)
 
 
+## Plans or cancels scaffolding on the given open tiles. Dwarves normally do
+## this themselves through the Scaffolder. Returns how many changed.
+func mark_scaffolds(tiles: Array[Vector2i], marked: bool) -> int:
+	return _mark_structure(TileGrid.STRUCTURE_SCAFFOLD, tiles, marked)
+
+
 ## Marks the structures in the rect to be taken down, or takes that mark off
 ## again. A plan that isn't built yet is simply cancelled; what is built is
-## taken down by a dwarf, and its wood drops on the spot. Returns how many changed.
-func mark_removal(rect: Rect2i, marked: bool) -> int:
+## taken down by a dwarf, and its wood drops on the spot. `kinds` limits it to
+## some STRUCTURE_ bits. Returns how many changed.
+func mark_removal(rect: Rect2i, marked: bool, kinds: int = ALL_STRUCTURES) -> int:
 	var changed: int = 0
 	for y in range(rect.position.y, rect.end.y):
 		for x in range(rect.position.x, rect.end.x):
 			if not grid.in_bounds(x, y):
 				continue
 			var tile := Vector2i(x, y)
-			for structure: int in [TileGrid.STRUCTURE_STAIR, TileGrid.STRUCTURE_FLOOR]:
+			for structure: int in [TileGrid.STRUCTURE_STAIR, TileGrid.STRUCTURE_FLOOR, TileGrid.STRUCTURE_SCAFFOLD]:
+				if kinds & structure == 0:
+					continue
 				var key := Vector3i(x, y, structure)
 				if not marked:
 					if _removal_sites.has(key):
@@ -250,10 +265,22 @@ func can_complete_site(site: BuildSite, worker: Dwarf) -> bool:
 		return true
 	if _is_structure_in_use(site.tile, site.structure, worker):
 		return false
+	# A tower comes down from the top.
+	if site.structure == TileGrid.STRUCTURE_SCAFFOLD and grid.has_scaffold(site.tile.x, site.tile.y - 1):
+		return false
 	grid.remove_structure(site.tile.x, site.tile.y, site.structure)
 	var safe: bool = _can_get_to_ground(worker.pos)
 	grid.add_structure(site.tile.x, site.tile.y, site.structure)
 	return safe
+
+
+## Whether work on a site could start now, materials aside. Scaffolding goes up
+## from the bottom: each tile needs something under it first.
+func is_site_workable(site: BuildSite) -> bool:
+	if site.structure == TileGrid.STRUCTURE_SCAFFOLD and not site.removing:
+		return grid.is_ground(site.tile.x, site.tile.y + 1)
+	return true
+
 
 func can_place_room(def: RoomDef, rect: Rect2i) -> bool:
 	return rooms.fit(grid, def, rect).size != Vector2i.ZERO
@@ -425,22 +452,29 @@ func remove_item(item: Item) -> void:
 
 func _mark_structure(structure: int, tiles: Array[Vector2i], marked: bool) -> int:
 	var flag: int = _mark_flag(structure)
-	var is_floor: bool = structure == TileGrid.STRUCTURE_FLOOR
+	# Floors and scaffolding span open space; stairs can go through anything.
+	var needs_open: bool = structure != TileGrid.STRUCTURE_STAIR
 	var changed: int = 0
 	var bounds := Rect2i()
 	for tile: Vector2i in tiles:
 		if not grid.in_bounds(tile.x, tile.y) or grid.material_at(tile.x, tile.y) == TileGrid.NO_MATERIAL:
 			continue
-		# A floor spans open space; stairs can go through anything.
-		if is_floor and marked and not grid.is_open(tile.x, tile.y):
+		if needs_open and marked and not grid.is_open(tile.x, tile.y):
 			continue
 		if grid.structure_at(tile.x, tile.y) & structure != 0 or grid.has_flag(tile.x, tile.y, flag) == marked:
 			continue
 		grid.set_flag(tile.x, tile.y, flag, marked)
 		var key := Vector3i(tile.x, tile.y, structure)
 		if marked:
-			var work_ticks: int = config.floor_build_ticks if is_floor else config.stair_build_ticks
-			var purpose: String = "the floor" if is_floor else "the stairs"
+			var work_ticks: int = config.stair_build_ticks
+			var purpose: String = "the stairs"
+			match structure:
+				TileGrid.STRUCTURE_FLOOR:
+					work_ticks = config.floor_build_ticks
+					purpose = "the floor"
+				TileGrid.STRUCTURE_SCAFFOLD:
+					work_ticks = config.scaffold_build_ticks
+					purpose = "the scaffolding"
 			var site: BuildSite = add_site(tile, item_type(config.structure_item), config.structure_item_count, work_ticks, purpose, null)
 			site.structure = structure
 			_structure_sites[key] = site
@@ -461,14 +495,15 @@ func _take_down(site: BuildSite) -> void:
 	grid.remove_structure(tile.x, tile.y, site.structure)
 	grid.set_flag(tile.x, tile.y, TileGrid.FLAG_REMOVE_MARK, _has_removal_site(tile))
 	spill(item_type(config.structure_item), config.structure_item_count, tile)
-	if site.structure == TileGrid.STRUCTURE_FLOOR:
+	if site.structure != TileGrid.STRUCTURE_STAIR:
 		_drop_what_stood_on(tile)
 	tile_changed.emit(tile.x, tile.y)
 
 
 func _has_removal_site(tile: Vector2i) -> bool:
 	return _removal_sites.has(Vector3i(tile.x, tile.y, TileGrid.STRUCTURE_STAIR)) \
-			or _removal_sites.has(Vector3i(tile.x, tile.y, TileGrid.STRUCTURE_FLOOR))
+			or _removal_sites.has(Vector3i(tile.x, tile.y, TileGrid.STRUCTURE_FLOOR)) \
+			or _removal_sites.has(Vector3i(tile.x, tile.y, TileGrid.STRUCTURE_SCAFFOLD))
 
 
 ## True if a dwarf at this spot is held up and can walk to somewhere with real
@@ -493,6 +528,7 @@ func _mark_flag(structure: int) -> int:
 ## A dwarf other than the worker is on this stair, or standing on this floor,
 ## or still stepping off it.
 func _is_structure_in_use(tile: Vector2i, structure: int, worker: Dwarf) -> bool:
+	# A stair is used by standing in its tile; floors and scaffolding by standing on top.
 	var spot: Vector2i = tile if structure == TileGrid.STRUCTURE_STAIR else tile + Vector2i.UP
 	for dwarf: Dwarf in dwarves:
 		if dwarf == worker:

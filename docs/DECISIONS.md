@@ -43,6 +43,15 @@ Judgment calls made while building, newest milestone first. Each entry says what
 - Stairs are drawn as half planks from each stair tile towards each stair it touches, so runs that meet at a turn join up.
 - Walls and doors are not built yet. A wall would turn open space back into solid; a door has nothing to do until there are threats.
 
+### Scaffolding
+- Scaffolding is a third structure: a platform like a floor that can also be climbed straight up and down. Climbing is the only vertical move in the game.
+- Dwarves put it up by themselves. When a dwarf looks for digging and finds none in reach, the `Scaffolder` looks for a marked tile that is only out of reach because it is too high, and plans a tower beside it: straight up from a floor the dwarf can walk to, just tall enough to stand on and reach the tile.
+- The lowest stance that reaches is used, so towers are as short as they can be. The tallest allowed is 8 tiles (`scaffold_max_height`).
+- A tower goes up from the bottom, each tile built by a dwarf standing in it. It costs 1 wood per tile.
+- Every 2 seconds, towers with nothing marked for digging in reach are marked to come down. They come down from the top, and the wood drops at the foot.
+- A tower only goes straight up from a floor. It doesn't bridge gaps or rescue a trapped dwarf; those stay as stairs and floors the player places.
+- There is no player-placed scaffolding yet.
+
 ### Dwarves speak
 - A dwarf has a `speech` string, drawn in a bubble over their head. For now the only thing said is "!".
 - An idle dwarf checks every 5 seconds whether they can still walk back to where the dwarves arrived. One who can't is trapped: they show "!" and post "I'm trapped! Build stairs to me." in the requests log. It clears once a way out exists.

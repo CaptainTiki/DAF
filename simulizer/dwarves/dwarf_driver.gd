@@ -67,7 +67,8 @@ func _tick_walk(sim: Simulation, dwarf: Dwarf) -> void:
 	dwarf.path.remove_at(0)
 	dwarf.from_pos = dwarf.pos
 	dwarf.pos = next
-	dwarf.facing = signi(next.x - dwarf.from_pos.x)
+	if next.x != dwarf.from_pos.x:
+		dwarf.facing = signi(next.x - dwarf.from_pos.x)
 	dwarf.move_ticks_left = _paced(dwarf, sim.config.walk_ticks)
 	dwarf.move_ticks_total = dwarf.move_ticks_left
 
@@ -224,7 +225,7 @@ func _kind_order(sim: Simulation) -> Array[int]:
 	backlog[Job.Kind.CRAFT] = sim.board.unclaimed_of(Job.Kind.CRAFT)
 	backlog[Job.Kind.HARVEST] = sim.board.unclaimed_of(Job.Kind.HARVEST)
 	for job: Job in sim.board.jobs_of(Job.Kind.BUILD):
-		if job.is_available(sim.tick_count) and job.site.is_ready():
+		if job.is_available(sim.tick_count) and job.site.is_ready() and sim.is_site_workable(job.site):
 			backlog[Job.Kind.BUILD] += 1
 	backlog[Job.Kind.HAUL] = sim.board.unclaimed_of(Job.Kind.HAUL) + sim.logistics.open_count()
 	if _has_drainable(sim):
@@ -263,7 +264,11 @@ func _try_kind(sim: Simulation, dwarf: Dwarf, flood_map: FloodMap, kind: Job.Kin
 		Job.Kind.HAUL:
 			return _try_haul(sim, dwarf, flood_map)
 		Job.Kind.DIG:
-			return _try_work(sim, dwarf, flood_map, sim.board.jobs_of(kind), false)
+			if _try_work(sim, dwarf, flood_map, sim.board.jobs_of(kind), false):
+				return true
+			# Nothing in reach. If something marked is just too high, plan a tower for it.
+			sim.scaffolds.plan(sim, flood_map)
+			return false
 	return _try_work(sim, dwarf, flood_map, sim.board.jobs_of(kind), true)
 
 
@@ -276,11 +281,11 @@ func _try_work(sim: Simulation, dwarf: Dwarf, flood_map: FloodMap, jobs: Array[J
 	for job: Job in jobs:
 		if not job.is_available(sim.tick_count):
 			continue
-		if job.kind == Job.Kind.BUILD and not job.site.is_ready():
+		if job.kind == Job.Kind.BUILD and not (job.site.is_ready() and sim.is_site_workable(job.site)):
 			continue
 		if job.kind == Job.Kind.CRAFT and _is_held_for_another(sim, dwarf, job.station):
 			continue
-		var removing: bool = job.kind == Job.Kind.BUILD and job.site.removing
+		var removing: bool = _must_work_from_beside(job)
 		# Nobody takes down what they are standing on.
 		var spot: Vector2i = Pathfinder.best_access(flood_map, job.tile.x, job.tile.y, stand_on_tile and not removing)
 		if spot == Pathfinder.NO_SPOT:
@@ -290,7 +295,7 @@ func _try_work(sim: Simulation, dwarf: Dwarf, flood_map: FloodMap, jobs: Array[J
 		# the crew along the work face instead of stacking them on one tile.
 		var score: int = flood_map.distance_to(spot.x, spot.y) * 1000 - job.tile.y
 		score += _dwarves_bound_for(sim, dwarf, spot) * CROWDED_SPOT_PENALTY
-		if removing:
+		if job.kind == Job.Kind.BUILD and job.site.removing:
 			# Taking things down starts at the far end, so the dwarf works back
 			# towards the way out and never cuts off the rest of the run.
 			score = -score
@@ -302,6 +307,13 @@ func _try_work(sim: Simulation, dwarf: Dwarf, flood_map: FloodMap, jobs: Array[J
 		return false
 	_start_job(sim, dwarf, best, flood_map.path_to(best_spot.x, best_spot.y))
 	return true
+
+
+## Stairs and floors hold up whoever stands in or on their tile, so they are
+## taken down from the tile beside. Scaffolding holds up the tile above, so a
+## dwarf can take it down while standing in it.
+func _must_work_from_beside(job: Job) -> bool:
+	return job.kind == Job.Kind.BUILD and job.site.removing and job.site.structure != TileGrid.STRUCTURE_SCAFFOLD
 
 
 ## A station's craft job is kept for the dwarf whose post it is, for a while.
@@ -327,7 +339,7 @@ func _start_job(sim: Simulation, dwarf: Dwarf, job: Job, path: Array[Vector2i]) 
 
 func _begin_work(sim: Simulation, dwarf: Dwarf, job: Job) -> void:
 	var in_position: bool = Pathfinder.can_reach(dwarf.pos, job.tile)
-	if job.kind != Job.Kind.DIG and not (job.kind == Job.Kind.BUILD and job.site.removing):
+	if job.kind != Job.Kind.DIG and not _must_work_from_beside(job):
 		in_position = Pathfinder.can_access(dwarf.pos, job.tile)
 	if not in_position or not _is_job_valid(sim, job):
 		_abandon_job(sim, dwarf, true)

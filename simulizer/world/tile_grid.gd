@@ -12,6 +12,9 @@ const STRUCTURE_STAIR: int = 1
 ## A built floor: a plank platform along the top of an open tile. It can be
 ## stood on like rock, and the space under it stays open.
 const STRUCTURE_FLOOR: int = 2
+## Scaffolding: a platform like a floor, that can also be climbed straight up
+## and down. Towers of it let dwarves reach high places.
+const STRUCTURE_SCAFFOLD: int = 4
 
 const FLAG_SOLID: int = 1
 const FLAG_DIG_MARK: int = 2
@@ -135,6 +138,10 @@ func set_structure(x: int, y: int, structure: int) -> void:
 	_structures[y * width + x] = structure
 
 
+func has_scaffold(x: int, y: int) -> bool:
+	return structure_at(x, y) & STRUCTURE_SCAFFOLD != 0
+
+
 func add_structure(x: int, y: int, structure: int) -> void:
 	_structures[y * width + x] = _structures[y * width + x] | structure
 
@@ -143,9 +150,9 @@ func remove_structure(x: int, y: int, structure: int) -> void:
 	_structures[y * width + x] = _structures[y * width + x] & ~structure
 
 
-## Something to stand on: rock, or a built floor.
+## Something to stand on: rock, a built floor, or scaffolding.
 func is_ground(x: int, y: int) -> bool:
-	return is_solid(x, y) or has_floor(x, y)
+	return is_solid(x, y) or structure_at(x, y) & (STRUCTURE_FLOOR | STRUCTURE_SCAFFOLD) != 0
 
 
 func layer_count() -> int:

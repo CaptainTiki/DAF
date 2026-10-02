@@ -8,10 +8,14 @@ extends MultiMeshInstance3D
 ##
 ## Where a stairwell passes behind rock, the rock is drawn cut away to show the
 ## stairs; a strip of that rock is kept along the top, where dwarves walk.
-## A built floor is a plank along the top of its tile.
+## A built floor is a plank along the top of its tile. Scaffolding is a plank
+## on two poles, in the back lane so the dwarf climbing it stays in view.
 
 const STAIR_COLOR := Color(0.62, 0.45, 0.25)
 const FLOOR_COLOR := Color(0.7, 0.52, 0.3)
+const SCAFFOLD_COLOR := Color(0.78, 0.66, 0.42)
+const POLE_WIDTH: float = 0.1
+const POLE_INSET: float = 0.38
 ## Drop the plank slightly so feet rest on top of it.
 const FOOT_CLEARANCE: float = 0.15
 const STRIP_THICKNESS: float = 0.2
@@ -26,6 +30,7 @@ var _sim: Simulation
 var _grid: TileGrid
 var _stairs: Array[Vector2i] = []
 var _floors: Array[Vector2i] = []
+var _scaffolds: Array[Vector2i] = []
 
 
 func bind(sim: Simulation) -> void:
@@ -41,13 +46,14 @@ func bind(sim: Simulation) -> void:
 ## digging around existing ones, which changes what is drawn.
 func refresh_tile(x: int, y: int) -> void:
 	_track(Vector2i(x, y))
-	if not _stairs.is_empty() or not _floors.is_empty() or multimesh.visible_instance_count > 0:
+	if not _stairs.is_empty() or not _floors.is_empty() or not _scaffolds.is_empty() or multimesh.visible_instance_count > 0 or _strips.multimesh.visible_instance_count > 0:
 		_rebuild()
 
 
 func _track(tile: Vector2i) -> void:
 	_set_listed(_stairs, tile, _grid.has_stair(tile.x, tile.y))
 	_set_listed(_floors, tile, _grid.has_floor(tile.x, tile.y))
+	_set_listed(_scaffolds, tile, _grid.has_scaffold(tile.x, tile.y))
 
 
 func _set_listed(list: Array[Vector2i], tile: Vector2i, present: bool) -> void:
@@ -70,7 +76,7 @@ func _rebuild() -> void:
 	planks.visible_instance_count = plank_count
 
 	var strips: MultiMesh = _strips.multimesh
-	_ensure_capacity(strips, _stairs.size() * 2 + _floors.size())
+	_ensure_capacity(strips, _stairs.size() * 2 + _floors.size() + _scaffolds.size() * 3)
 	var strip_count: int = 0
 	for tile: Vector2i in _stairs:
 		# The stair tile and the head space above it are both drawn cut away.
@@ -83,6 +89,12 @@ func _rebuild() -> void:
 	for tile: Vector2i in _floors:
 		_set_strip(strips, strip_count, tile.x, tile.y, FLOOR_COLOR * ViewSpace.tile_jitter(tile.x, tile.y))
 		strip_count += 1
+	for tile: Vector2i in _scaffolds:
+		var centre: Vector3 = ViewSpace.tile_center(tile.x, tile.y, ViewSpace.LANE_STRUCTURE)
+		_set_quad(strips, strip_count, centre + Vector3(0.0, 0.5 - STRIP_THICKNESS * 0.5, 0.0), Vector2(1.0, STRIP_THICKNESS), SCAFFOLD_COLOR)
+		_set_quad(strips, strip_count + 1, centre + Vector3(-POLE_INSET, 0.0, 0.0), Vector2(POLE_WIDTH, 1.0), SCAFFOLD_COLOR.darkened(0.25))
+		_set_quad(strips, strip_count + 2, centre + Vector3(POLE_INSET, 0.0, 0.0), Vector2(POLE_WIDTH, 1.0), SCAFFOLD_COLOR.darkened(0.25))
+		strip_count += 3
 	strips.visible_instance_count = strip_count
 
 
@@ -115,10 +127,12 @@ func _half_plank(tile: Vector2i, direction: Vector2i) -> Transform3D:
 
 ## A thin strip along the top edge of a tile, at the front.
 func _set_strip(mesh: MultiMesh, index: int, x: int, y: int, color: Color) -> void:
-	var strip_basis := Basis.from_scale(Vector3(1.0, STRIP_THICKNESS, 1.0))
-	var origin := Vector3(x + 0.5, -y - STRIP_THICKNESS * 0.5, ViewSpace.LANE_SOLID)
+	_set_quad(mesh, index, Vector3(x + 0.5, -y - STRIP_THICKNESS * 0.5, ViewSpace.LANE_SOLID), Vector2(1.0, STRIP_THICKNESS), color)
+
+
+func _set_quad(mesh: MultiMesh, index: int, centre: Vector3, size: Vector2, color: Color) -> void:
 	color.a = 1.0
-	mesh.set_instance_transform(index, Transform3D(strip_basis, origin))
+	mesh.set_instance_transform(index, Transform3D(Basis.from_scale(Vector3(size.x, size.y, 1.0)), centre))
 	mesh.set_instance_color(index, color)
 
 

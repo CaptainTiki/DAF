@@ -24,7 +24,11 @@ static func is_supported(grid: TileGrid, x: int, y: int) -> bool:
 ## One move: sideways, or sideways and one tile up or down.
 ## Stepping needs clear headroom above whichever end of the step is lower,
 ## except on stairs, which run behind the rock and have their own space.
+## The other move is a climb: straight up or down one tile, through scaffolding.
 static func can_step(grid: TileGrid, x: int, y: int, to_x: int, to_y: int) -> bool:
+	if to_x == x:
+		# The lower of the two tiles is the scaffolding being climbed.
+		return absi(to_y - y) == 1 and grid.has_scaffold(x, maxi(y, to_y)) and can_occupy(grid, to_x, to_y)
 	if absi(to_x - x) != 1 or absi(to_y - y) > 1:
 		return false
 	if not can_occupy(grid, to_x, to_y):
@@ -95,6 +99,17 @@ static func flood(grid: TileGrid, start: Vector2i, max_dist: int = -1) -> FloodM
 				dist[next] = d + 1
 				parent[next] = current
 				queue.append(next)
+		# Climbing straight up or down scaffolding.
+		for rise in 2:
+			var ny: int = cy + rise * 2 - 1
+			if ny < 0 or ny >= height:
+				continue
+			var next: int = ny * width + cx
+			if dist[next] != -1 or not can_step(grid, cx, cy, cx, ny):
+				continue
+			dist[next] = d + 1
+			parent[next] = current
+			queue.append(next)
 	map.dist = dist
 	map.parent = parent
 	map.reached = queue
