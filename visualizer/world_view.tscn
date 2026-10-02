@@ -1,0 +1,138 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://visualizer/world_view.gd" id="1_view"]
+[ext_resource type="Script" path="res://visualizer/view_camera.gd" id="2_camera"]
+[ext_resource type="Script" path="res://visualizer/tile_layer.gd" id="3_tiles"]
+[ext_resource type="Script" path="res://visualizer/mark_layer.gd" id="4_marks"]
+[ext_resource type="Script" path="res://visualizer/item_layer.gd" id="5_items"]
+[ext_resource type="PackedScene" path="res://visualizer/dwarf_view.tscn" id="6_dwarf"]
+[ext_resource type="Script" path="res://visualizer/structure_layer.gd" id="7_structures"]
+
+[sub_resource type="Environment" id="environment"]
+background_mode = 1
+background_color = Color(0.2, 0.29, 0.4, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_instanced"]
+shading_mode = 0
+vertex_color_use_as_albedo = true
+vertex_color_is_srgb = true
+
+[sub_resource type="QuadMesh" id="mesh_tile"]
+material = SubResource("mat_instanced")
+
+[sub_resource type="MultiMesh" id="mm_tiles"]
+transform_format = 1
+use_colors = true
+mesh = SubResource("mesh_tile")
+
+[sub_resource type="StandardMaterial3D" id="mat_mark"]
+transparency = 1
+shading_mode = 0
+vertex_color_use_as_albedo = true
+vertex_color_is_srgb = true
+
+[sub_resource type="QuadMesh" id="mesh_mark"]
+material = SubResource("mat_mark")
+
+[sub_resource type="MultiMesh" id="mm_marks"]
+transform_format = 1
+use_colors = true
+mesh = SubResource("mesh_mark")
+
+[sub_resource type="SphereMesh" id="mesh_ball"]
+material = SubResource("mat_instanced")
+radius = 0.2
+height = 0.4
+radial_segments = 10
+rings = 5
+
+[sub_resource type="MultiMesh" id="mm_loose"]
+transform_format = 1
+use_colors = true
+mesh = SubResource("mesh_ball")
+
+[sub_resource type="MultiMesh" id="mm_pallet_balls"]
+transform_format = 1
+use_colors = true
+mesh = SubResource("mesh_ball")
+
+[sub_resource type="BoxMesh" id="mesh_pallet"]
+material = SubResource("mat_instanced")
+size = Vector3(0.92, 0.1, 0.6)
+
+[sub_resource type="MultiMesh" id="mm_pallet_bases"]
+transform_format = 1
+use_colors = true
+mesh = SubResource("mesh_pallet")
+
+[sub_resource type="BoxMesh" id="mesh_stair"]
+material = SubResource("mat_instanced")
+size = Vector3(1.42, 0.24, 0.5)
+
+[sub_resource type="MultiMesh" id="mm_structures"]
+transform_format = 1
+use_colors = true
+mesh = SubResource("mesh_stair")
+
+[sub_resource type="MultiMesh" id="mm_tile_selection"]
+transform_format = 1
+use_colors = true
+mesh = SubResource("mesh_mark")
+
+[sub_resource type="StandardMaterial3D" id="mat_selection"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(1, 1, 1, 0.3)
+
+[sub_resource type="QuadMesh" id="mesh_selection"]
+material = SubResource("mat_selection")
+
+[node name="WorldView" type="Node3D"]
+script = ExtResource("1_view")
+dwarf_scene = ExtResource("6_dwarf")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("environment")
+
+[node name="Camera" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 10)
+projection = 1
+current = true
+size = 8.0
+near = 0.1
+far = 40.0
+script = ExtResource("2_camera")
+
+[node name="Tiles" type="MultiMeshInstance3D" parent="."]
+multimesh = SubResource("mm_tiles")
+script = ExtResource("3_tiles")
+
+[node name="Marks" type="MultiMeshInstance3D" parent="."]
+multimesh = SubResource("mm_marks")
+script = ExtResource("4_marks")
+
+[node name="Items" type="Node3D" parent="."]
+script = ExtResource("5_items")
+
+[node name="LooseBalls" type="MultiMeshInstance3D" parent="Items"]
+multimesh = SubResource("mm_loose")
+
+[node name="PalletBalls" type="MultiMeshInstance3D" parent="Items"]
+multimesh = SubResource("mm_pallet_balls")
+
+[node name="PalletBases" type="MultiMeshInstance3D" parent="Items"]
+multimesh = SubResource("mm_pallet_bases")
+
+[node name="Structures" type="MultiMeshInstance3D" parent="."]
+multimesh = SubResource("mm_structures")
+script = ExtResource("7_structures")
+
+[node name="Dwarves" type="Node3D" parent="."]
+
+[node name="TileSelection" type="MultiMeshInstance3D" parent="."]
+visible = false
+multimesh = SubResource("mm_tile_selection")
+
+[node name="Selection" type="MeshInstance3D" parent="."]
+visible = false
+mesh = SubResource("mesh_selection")

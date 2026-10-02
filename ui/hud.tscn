@@ -1,0 +1,178 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://ui/hud.gd" id="1_hud"]
+
+[sub_resource type="Theme" id="theme_compact"]
+default_font_size = 12
+
+[node name="Hud" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme = SubResource("theme_compact")
+script = ExtResource("1_hud")
+
+[node name="Bar" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 4.0
+offset_top = -30.0
+offset_right = -4.0
+offset_bottom = -4.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+
+[node name="DigButton" type="Button" parent="Bar"]
+layout_mode = 2
+tooltip_text = "Drag to mark tiles for digging. Right-drag or Shift-drag to unmark."
+toggle_mode = true
+text = "Dig"
+
+[node name="StockpileButton" type="Button" parent="Bar"]
+layout_mode = 2
+tooltip_text = "Drag along a floor to mark storage. Right-drag or Shift-drag to unmark."
+toggle_mode = true
+text = "Stockpile"
+
+[node name="StairsButton" type="Button" parent="Bar"]
+layout_mode = 2
+tooltip_text = "Drag diagonally to plan stairs. They can run through rock and floors. Right-drag or Shift-drag cancels a plan."
+toggle_mode = true
+text = "Stairs"
+
+[node name="RequestsButton" type="Button" parent="Bar"]
+layout_mode = 2
+toggle_mode = true
+text = "Requests"
+
+[node name="DebugButton" type="Button" parent="Bar"]
+layout_mode = 2
+toggle_mode = true
+text = "Debug"
+
+[node name="Totals" type="Label" parent="Bar"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 5
+text = "Stored: nothing yet"
+clip_text = true
+
+[node name="LayerUpButton" type="Button" parent="Bar"]
+layout_mode = 2
+tooltip_text = "Show the layer above"
+text = "Up"
+
+[node name="LayerLabel" type="Label" parent="Bar"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 5
+text = "Layer 1"
+
+[node name="LayerDownButton" type="Button" parent="Bar"]
+layout_mode = 2
+tooltip_text = "Show the layer below"
+text = "Down"
+
+[node name="StripButton" type="Button" parent="Bar"]
+layout_mode = 2
+tooltip_text = "Dock as a strip along the bottom of the screen"
+text = "Strip"
+
+[node name="FullButton" type="Button" parent="Bar"]
+layout_mode = 2
+tooltip_text = "Full screen, free pan and zoom"
+text = "Full"
+
+[node name="CornerButton" type="Button" parent="Bar"]
+layout_mode = 2
+tooltip_text = "Small window in the corner of the screen"
+text = "Corner"
+
+[node name="TrayButton" type="Button" parent="Bar"]
+layout_mode = 2
+tooltip_text = "Hide to the system tray. The hold keeps working."
+text = "Tray"
+
+[node name="RequestsPanel" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 4.0
+offset_top = -146.0
+offset_right = 484.0
+offset_bottom = -34.0
+grow_vertical = 0
+
+[node name="Rows" type="VBoxContainer" parent="RequestsPanel"]
+layout_mode = 2
+
+[node name="Header" type="HBoxContainer" parent="RequestsPanel/Rows"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="RequestsPanel/Rows/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Requests"
+
+[node name="ClearButton" type="Button" parent="RequestsPanel/Rows/Header"]
+layout_mode = 2
+text = "Clear"
+
+[node name="List" type="RichTextLabel" parent="RequestsPanel/Rows"]
+layout_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = true
+
+[node name="DebugPanel" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 4.0
+offset_top = -68.0
+offset_right = 484.0
+offset_bottom = -34.0
+grow_vertical = 0
+
+[node name="Row" type="HBoxContainer" parent="DebugPanel"]
+layout_mode = 2
+
+[node name="HireButton" type="Button" parent="DebugPanel/Row"]
+layout_mode = 2
+text = "Hire Dwarf"
+
+[node name="DwarfCount" type="Label" parent="DebugPanel/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Dwarves: 0"
+
+[node name="Speed1" type="Button" parent="DebugPanel/Row"]
+layout_mode = 2
+text = "x1"
+
+[node name="Speed4" type="Button" parent="DebugPanel/Row"]
+layout_mode = 2
+text = "x4"
+
+[node name="Speed16" type="Button" parent="DebugPanel/Row"]
+layout_mode = 2
+text = "x16"
+
+[node name="RevealCheck" type="CheckButton" parent="DebugPanel/Row"]
+layout_mode = 2
+tooltip_text = "Show all rock, not just what borders open space"
+text = "Reveal map"

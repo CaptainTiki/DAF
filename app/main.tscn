@@ -1,0 +1,30 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://app/main.gd" id="1_main"]
+[ext_resource type="Resource" path="res://data/sim_config.tres" id="2_config"]
+[ext_resource type="PackedScene" path="res://visualizer/world_view.tscn" id="3_view"]
+[ext_resource type="PackedScene" path="res://ui/hud.tscn" id="4_hud"]
+[ext_resource type="Script" path="res://ui/tool_controller.gd" id="5_tools"]
+[ext_resource type="Script" path="res://app/window_controller.gd" id="6_window"]
+[ext_resource type="Texture2D" path="res://icon.svg" id="7_icon"]
+
+[node name="Main" type="Node"]
+script = ExtResource("1_main")
+config = ExtResource("2_config")
+
+[node name="WorldView" parent="." instance=ExtResource("3_view")]
+
+[node name="UiLayer" type="CanvasLayer" parent="."]
+
+[node name="Hud" parent="UiLayer" instance=ExtResource("4_hud")]
+
+[node name="ToolController" type="Node" parent="."]
+script = ExtResource("5_tools")
+
+[node name="WindowController" type="Node" parent="."]
+script = ExtResource("6_window")
+
+[node name="Tray" type="StatusIndicator" parent="WindowController"]
+tooltip = "Little Computer Dwarves"
+icon = ExtResource("7_icon")
+visible = false

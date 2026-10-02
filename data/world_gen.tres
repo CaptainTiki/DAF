@@ -1,0 +1,130 @@
+[gd_resource type="Resource" script_class="WorldGenConfig" format=3]
+
+[ext_resource type="Script" path="res://simulizer/defs/world_gen_config.gd" id="1_config"]
+[ext_resource type="Script" path="res://simulizer/defs/depth_band.gd" id="2_band"]
+[ext_resource type="Script" path="res://simulizer/defs/vein_def.gd" id="3_vein"]
+[ext_resource type="Resource" path="res://data/materials/dirt.tres" id="4_dirt"]
+[ext_resource type="Resource" path="res://data/materials/stone.tres" id="5_stone"]
+[ext_resource type="Resource" path="res://data/materials/copper.tres" id="6_copper"]
+[ext_resource type="Resource" path="res://data/materials/iron.tres" id="7_iron"]
+[ext_resource type="Resource" path="res://data/materials/silver.tres" id="8_silver"]
+[ext_resource type="Resource" path="res://data/materials/gold.tres" id="9_gold"]
+[ext_resource type="Resource" path="res://data/materials/gem.tres" id="10_gem"]
+
+[sub_resource type="Resource" id="vein_topsoil_stone"]
+script = ExtResource("3_vein")
+material = ExtResource("5_stone")
+veins_per_thousand_tiles = 4.0
+min_size = 4
+max_size = 10
+
+[sub_resource type="Resource" id="band_topsoil"]
+script = ExtResource("2_band")
+start_depth = 0.0
+base_material = ExtResource("4_dirt")
+veins = Array[ExtResource("3_vein")]([SubResource("vein_topsoil_stone")])
+
+[sub_resource type="Resource" id="vein_upper_dirt"]
+script = ExtResource("3_vein")
+material = ExtResource("4_dirt")
+veins_per_thousand_tiles = 2.0
+min_size = 5
+max_size = 12
+
+[sub_resource type="Resource" id="vein_upper_iron"]
+script = ExtResource("3_vein")
+material = ExtResource("7_iron")
+veins_per_thousand_tiles = 5.0
+min_size = 8
+max_size = 20
+
+[sub_resource type="Resource" id="vein_upper_copper"]
+script = ExtResource("3_vein")
+material = ExtResource("6_copper")
+veins_per_thousand_tiles = 3.0
+min_size = 6
+max_size = 14
+
+[sub_resource type="Resource" id="band_upper_rock"]
+script = ExtResource("2_band")
+start_depth = 0.12
+base_material = ExtResource("5_stone")
+veins = Array[ExtResource("3_vein")]([SubResource("vein_upper_dirt"), SubResource("vein_upper_iron"), SubResource("vein_upper_copper")])
+
+[sub_resource type="Resource" id="vein_mid_iron"]
+script = ExtResource("3_vein")
+material = ExtResource("7_iron")
+veins_per_thousand_tiles = 4.0
+min_size = 8
+max_size = 18
+
+[sub_resource type="Resource" id="vein_mid_copper"]
+script = ExtResource("3_vein")
+material = ExtResource("6_copper")
+veins_per_thousand_tiles = 2.0
+min_size = 6
+max_size = 12
+
+[sub_resource type="Resource" id="vein_mid_silver"]
+script = ExtResource("3_vein")
+material = ExtResource("8_silver")
+veins_per_thousand_tiles = 2.0
+min_size = 5
+max_size = 12
+
+[sub_resource type="Resource" id="vein_mid_gold"]
+script = ExtResource("3_vein")
+material = ExtResource("9_gold")
+veins_per_thousand_tiles = 0.8
+min_size = 4
+max_size = 9
+
+[sub_resource type="Resource" id="band_mid_rock"]
+script = ExtResource("2_band")
+start_depth = 0.45
+base_material = ExtResource("5_stone")
+veins = Array[ExtResource("3_vein")]([SubResource("vein_mid_iron"), SubResource("vein_mid_copper"), SubResource("vein_mid_silver"), SubResource("vein_mid_gold")])
+
+[sub_resource type="Resource" id="vein_deep_iron"]
+script = ExtResource("3_vein")
+material = ExtResource("7_iron")
+veins_per_thousand_tiles = 3.0
+min_size = 8
+max_size = 16
+
+[sub_resource type="Resource" id="vein_deep_silver"]
+script = ExtResource("3_vein")
+material = ExtResource("8_silver")
+veins_per_thousand_tiles = 2.0
+min_size = 5
+max_size = 12
+
+[sub_resource type="Resource" id="vein_deep_gold"]
+script = ExtResource("3_vein")
+material = ExtResource("9_gold")
+veins_per_thousand_tiles = 1.2
+min_size = 4
+max_size = 10
+
+[sub_resource type="Resource" id="vein_deep_gem"]
+script = ExtResource("3_vein")
+material = ExtResource("10_gem")
+veins_per_thousand_tiles = 1.0
+min_size = 3
+max_size = 7
+
+[sub_resource type="Resource" id="band_deep_rock"]
+script = ExtResource("2_band")
+start_depth = 0.75
+base_material = ExtResource("5_stone")
+veins = Array[ExtResource("3_vein")]([SubResource("vein_deep_iron"), SubResource("vein_deep_silver"), SubResource("vein_deep_gold"), SubResource("vein_deep_gem")])
+
+[resource]
+script = ExtResource("1_config")
+width = 160
+layer_count = 30
+layer_height = 4
+sky_rows = 3
+entry_room_width = 12
+band_jitter = 0.03
+bands = Array[ExtResource("2_band")]([SubResource("band_topsoil"), SubResource("band_upper_rock"), SubResource("band_mid_rock"), SubResource("band_deep_rock")])

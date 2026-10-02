@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="SimConfig" format=3]
+
+[ext_resource type="Script" path="res://simulizer/defs/sim_config.gd" id="1_config"]
+[ext_resource type="Script" path="res://simulizer/defs/material_def.gd" id="2_material"]
+[ext_resource type="Resource" path="res://data/world_gen.tres" id="3_world"]
+[ext_resource type="Resource" path="res://data/materials/dirt.tres" id="4_dirt"]
+[ext_resource type="Resource" path="res://data/materials/stone.tres" id="5_stone"]
+[ext_resource type="Resource" path="res://data/materials/copper.tres" id="6_copper"]
+[ext_resource type="Resource" path="res://data/materials/iron.tres" id="7_iron"]
+[ext_resource type="Resource" path="res://data/materials/silver.tres" id="8_silver"]
+[ext_resource type="Resource" path="res://data/materials/gold.tres" id="9_gold"]
+[ext_resource type="Resource" path="res://data/materials/gem.tres" id="10_gem"]
+
+[resource]
+script = ExtResource("1_config")
+ticks_per_second = 20
+materials = Array[ExtResource("2_material")]([ExtResource("4_dirt"), ExtResource("5_stone"), ExtResource("6_copper"), ExtResource("7_iron"), ExtResource("8_silver"), ExtResource("9_gold"), ExtResource("10_gem")])
+world_gen = ExtResource("3_world")
+walk_ticks = 6
+fall_ticks = 2
+idle_retry_ticks = 20
+wander_chance = 0.25
+wander_range = 6
+job_retry_ticks = 100
+dwarf_names = PackedStringArray("Brokk", "Dagna", "Thrain", "Hilde", "Orin", "Gerta", "Bofri", "Sigrun", "Durgan", "Marta", "Kelda", "Rurik", "Yrsa", "Nali", "Thora", "Grum", "Astrid", "Dolgrim", "Ingra", "Varn")
+pallet_capacity = 10
+haul_priority_threshold = 3
+request_refresh_ticks = 200

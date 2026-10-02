@@ -1,0 +1,103 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://visualizer/dwarf_view.gd" id="1_script"]
+
+[sub_resource type="StandardMaterial3D" id="mat_tunic"]
+shading_mode = 0
+albedo_color = Color(0.72, 0.22, 0.2, 1)
+
+[sub_resource type="BoxMesh" id="mesh_body"]
+material = SubResource("mat_tunic")
+size = Vector3(0.62, 0.9, 0.3)
+
+[sub_resource type="StandardMaterial3D" id="mat_skin"]
+shading_mode = 0
+albedo_color = Color(0.9, 0.7, 0.55, 1)
+
+[sub_resource type="BoxMesh" id="mesh_head"]
+material = SubResource("mat_skin")
+size = Vector3(0.5, 0.5, 0.3)
+
+[sub_resource type="StandardMaterial3D" id="mat_helmet"]
+shading_mode = 0
+albedo_color = Color(0.6, 0.62, 0.66, 1)
+
+[sub_resource type="BoxMesh" id="mesh_helmet"]
+material = SubResource("mat_helmet")
+size = Vector3(0.58, 0.22, 0.34)
+
+[sub_resource type="StandardMaterial3D" id="mat_beard"]
+shading_mode = 0
+albedo_color = Color(0.8, 0.42, 0.12, 1)
+
+[sub_resource type="BoxMesh" id="mesh_beard"]
+material = SubResource("mat_beard")
+size = Vector3(0.34, 0.4, 0.1)
+
+[sub_resource type="StandardMaterial3D" id="mat_handle"]
+shading_mode = 0
+albedo_color = Color(0.45, 0.3, 0.15, 1)
+
+[sub_resource type="BoxMesh" id="mesh_handle"]
+material = SubResource("mat_handle")
+size = Vector3(0.08, 0.75, 0.08)
+
+[sub_resource type="BoxMesh" id="mesh_pick_head"]
+material = SubResource("mat_helmet")
+size = Vector3(0.5, 0.12, 0.1)
+
+[sub_resource type="SphereMesh" id="mesh_carried"]
+radius = 0.2
+height = 0.4
+radial_segments = 10
+rings = 5
+
+[sub_resource type="StandardMaterial3D" id="mat_progress"]
+shading_mode = 0
+albedo_color = Color(1, 0.95, 0.6, 1)
+
+[sub_resource type="QuadMesh" id="mesh_progress"]
+material = SubResource("mat_progress")
+size = Vector2(0.8, 0.1)
+
+[node name="DwarfView" type="Node3D"]
+script = ExtResource("1_script")
+
+[node name="Rig" type="Node3D" parent="."]
+
+[node name="Body" type="MeshInstance3D" parent="Rig"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+mesh = SubResource("mesh_body")
+
+[node name="Head" type="MeshInstance3D" parent="Rig"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
+mesh = SubResource("mesh_head")
+
+[node name="Helmet" type="MeshInstance3D" parent="Rig"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.52, 0)
+mesh = SubResource("mesh_helmet")
+
+[node name="Beard" type="MeshInstance3D" parent="Rig"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.14, 0.95, 0.2)
+mesh = SubResource("mesh_beard")
+
+[node name="PickPivot" type="Node3D" parent="Rig"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.3, 0.7, 0.3)
+
+[node name="Handle" type="MeshInstance3D" parent="Rig/PickPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.375, 0)
+mesh = SubResource("mesh_handle")
+
+[node name="PickHead" type="MeshInstance3D" parent="Rig/PickPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+mesh = SubResource("mesh_pick_head")
+
+[node name="Carried" type="MeshInstance3D" parent="Rig"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.32, 0.72, 0.3)
+visible = false
+mesh = SubResource("mesh_carried")
+
+[node name="Progress" type="MeshInstance3D" parent="."]
+top_level = true
+visible = false
+mesh = SubResource("mesh_progress")
