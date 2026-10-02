@@ -35,6 +35,8 @@ var kind_served: PackedInt32Array
 
 var _driver := DwarfDriver.new()
 var _unsettled: Array[Item] = []
+## Structures being taken down, keyed the same way as _structure_sites.
+var _removal_sites: Dictionary[Vector3i, BuildSite] = {}
 ## Planned structures, keyed by (x, y, STRUCTURE_ bit).
 var _structure_sites: Dictionary[Vector3i, BuildSite] = {}
 var _next_item_id: int = 1
@@ -206,12 +208,11 @@ func mark_floors(rect: Rect2i, marked: bool) -> int:
 	return _mark_structure(TileGrid.STRUCTURE_FLOOR, tiles, marked)
 
 
-## Takes away every structure in the rect, planned or built. Wood that went
-## into it drops on the spot. A stair with a dwarf on it, or a floor with a
-## dwarf standing on it, is left alone. Returns how many were removed.
-func remove_structures(rect: Rect2i) -> int:
-	var removed: int = 0
-	var refund: int = item_type(config.structure_item)
+## Marks the structures in the rect to be taken down, or takes that mark off
+## again. A plan that isn't built yet is simply cancelled; what is built is
+## taken down by a dwarf, and its wood drops on the spot. Returns how many changed.
+func mark_removal(rect: Rect2i, marked: bool) -> int:
+	var changed: int = 0
 	for y in range(rect.position.y, rect.end.y):
 		for x in range(rect.position.x, rect.end.x):
 			if not grid.in_bounds(x, y):
@@ -219,22 +220,40 @@ func remove_structures(rect: Rect2i) -> int:
 			var tile := Vector2i(x, y)
 			for structure: int in [TileGrid.STRUCTURE_STAIR, TileGrid.STRUCTURE_FLOOR]:
 				var key := Vector3i(x, y, structure)
-				if _structure_sites.has(key):
+				if not marked:
+					if _removal_sites.has(key):
+						cancel_site(_removal_sites[key])
+						_removal_sites.erase(key)
+						changed += 1
+				elif _structure_sites.has(key):
 					grid.set_flag(x, y, _mark_flag(structure), false)
 					cancel_site(_structure_sites[key])
 					_structure_sites.erase(key)
-					removed += 1
-				elif grid.structure_at(x, y) & structure != 0 and not _is_structure_in_use(tile, structure):
-					grid.remove_structure(x, y, structure)
-					spill(refund, config.structure_item_count, tile)
-					if structure == TileGrid.STRUCTURE_FLOOR:
-						_drop_what_stood_on(tile)
-					tile_changed.emit(x, y)
-					removed += 1
-	if removed > 0:
+					changed += 1
+				elif grid.structure_at(x, y) & structure != 0 and not _removal_sites.has(key):
+					var site: BuildSite = add_site(tile, NO_ITEM, 0, config.remove_ticks, "", null)
+					site.structure = structure
+					site.removing = true
+					_removal_sites[key] = site
+					changed += 1
+			grid.set_flag(x, y, TileGrid.FLAG_REMOVE_MARK, _has_removal_site(tile))
+	if changed > 0:
 		marks_changed.emit(rect.grow(1))
-	return removed
+	return changed
 
+
+## Whether this dwarf may finish the site right now. Taking something down
+## waits while another dwarf is on it, and is refused if it would leave the
+## worker with no way back to solid ground.
+func can_complete_site(site: BuildSite, worker: Dwarf) -> bool:
+	if not site.removing:
+		return true
+	if _is_structure_in_use(site.tile, site.structure, worker):
+		return false
+	grid.remove_structure(site.tile.x, site.tile.y, site.structure)
+	var safe: bool = _can_get_to_ground(worker.pos)
+	grid.add_structure(site.tile.x, site.tile.y, site.structure)
+	return safe
 
 func can_place_room(def: RoomDef, rect: Rect2i) -> bool:
 	return rooms.fit(grid, def, rect).size != Vector2i.ZERO
@@ -306,6 +325,9 @@ func complete_site(site: BuildSite) -> void:
 		logistics.close(site.request)
 	if site.slot != null:
 		rooms.slot_built(self, site.slot)
+		return
+	if site.removing:
+		_take_down(site)
 		return
 	grid.set_flag(site.tile.x, site.tile.y, _mark_flag(site.structure), false)
 	grid.add_structure(site.tile.x, site.tile.y, site.structure)
@@ -432,15 +454,50 @@ func _mark_structure(structure: int, tiles: Array[Vector2i], marked: bool) -> in
 	return changed
 
 
+## Removes a built structure and drops the wood that was in it.
+func _take_down(site: BuildSite) -> void:
+	var tile: Vector2i = site.tile
+	_removal_sites.erase(Vector3i(tile.x, tile.y, site.structure))
+	grid.remove_structure(tile.x, tile.y, site.structure)
+	grid.set_flag(tile.x, tile.y, TileGrid.FLAG_REMOVE_MARK, _has_removal_site(tile))
+	spill(item_type(config.structure_item), config.structure_item_count, tile)
+	if site.structure == TileGrid.STRUCTURE_FLOOR:
+		_drop_what_stood_on(tile)
+	tile_changed.emit(tile.x, tile.y)
+
+
+func _has_removal_site(tile: Vector2i) -> bool:
+	return _removal_sites.has(Vector3i(tile.x, tile.y, TileGrid.STRUCTURE_STAIR)) \
+			or _removal_sites.has(Vector3i(tile.x, tile.y, TileGrid.STRUCTURE_FLOOR))
+
+
+## True if a dwarf at this spot is held up and can walk to somewhere with real
+## ground underfoot (or is standing on it already).
+func _can_get_to_ground(from: Vector2i) -> bool:
+	if not Pathfinder.is_supported(grid, from.x, from.y):
+		return false
+	var flood_map: FloodMap = Pathfinder.flood(grid, from, 64)
+	for index: int in flood_map.reached:
+		var x: int = index % grid.width
+		@warning_ignore("integer_division")
+		var y: int = index / grid.width
+		if Pathfinder.can_stand(grid, x, y):
+			return true
+	return false
+
+
 func _mark_flag(structure: int) -> int:
 	return TileGrid.FLAG_FLOOR_MARK if structure == TileGrid.STRUCTURE_FLOOR else TileGrid.FLAG_BUILD_MARK
 
 
-## A dwarf is on this stair, or standing on this floor.
-func _is_structure_in_use(tile: Vector2i, structure: int) -> bool:
+## A dwarf other than the worker is on this stair, or standing on this floor,
+## or still stepping off it.
+func _is_structure_in_use(tile: Vector2i, structure: int, worker: Dwarf) -> bool:
 	var spot: Vector2i = tile if structure == TileGrid.STRUCTURE_STAIR else tile + Vector2i.UP
 	for dwarf: Dwarf in dwarves:
-		if dwarf.pos == spot or dwarf.from_pos == spot:
+		if dwarf == worker:
+			continue
+		if dwarf.pos == spot or (dwarf.move_ticks_left > 0 and dwarf.from_pos == spot):
 			return true
 	return false
 

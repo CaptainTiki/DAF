@@ -162,7 +162,7 @@ text = "Floor"
 
 [node name="RemoveOption" type="Button" parent="BuildPanel/Row"]
 layout_mode = 2
-tooltip_text = "Drag over stairs and floors, planned or built, to take them away. The wood is given back."
+tooltip_text = "Drag over stairs and floors to have dwarves take them down. The wood is given back. Right-drag takes the mark off again."
 text = "Remove"
 
 [node name="RoomPanel" type="PanelContainer" parent="."]

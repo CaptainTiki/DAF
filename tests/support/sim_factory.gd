@@ -59,6 +59,7 @@ static func make_config() -> SimConfig:
 	config.structure_item = null
 	config.stair_build_ticks = 10
 	config.floor_build_ticks = 10
+	config.remove_ticks = 10
 	config.walk_ticks = 2
 	config.idle_retry_ticks = 2
 	config.wander_chance = 0.0

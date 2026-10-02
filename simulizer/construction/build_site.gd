@@ -12,6 +12,8 @@ var work_ticks: int = 0
 var slot: RoomSlot
 ## The TileGrid.STRUCTURE_ bit this builds, when it is not a room slot.
 var structure: int = 0
+## True when the work is to take the structure down, not put it up.
+var removing: bool = false
 ## The job on the board for the work part. Null if work_ticks is 0.
 var job: Job
 var done: bool = false

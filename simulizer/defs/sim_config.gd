@@ -44,6 +44,8 @@ extends Resource
 @export var stair_build_ticks: int = 50
 ## Ticks to build one tile of floor once its materials are there.
 @export var floor_build_ticks: int = 40
+## Ticks to take down one tile of stairs or floor.
+@export var remove_ticks: int = 30
 ## What a tile of stairs or floor is made of. Null makes structures free.
 @export var structure_item: ItemDef
 @export var structure_item_count: int = 1

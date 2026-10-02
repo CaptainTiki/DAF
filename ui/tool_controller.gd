@@ -10,6 +10,8 @@ const STAIRS_COLOR := Color(0.4, 1.0, 0.5, 0.4)
 const FLOOR_COLOR := Color(1.0, 0.6, 0.25, 0.4)
 const STOCKPILE_COLOR := Color(0.3, 0.65, 1.0, 0.3)
 const UNMARK_COLOR := Color(1.0, 0.3, 0.25, 0.3)
+## Taking a removal mark off again.
+const KEEP_COLOR := Color(0.9, 0.9, 0.9, 0.3)
 const INVALID_COLOR := Color(1.0, 0.15, 0.1, 0.45)
 const ROOM_PREVIEW_ALPHA: float = 0.4
 
@@ -78,16 +80,17 @@ func _apply() -> void:
 			_sim.mark_stockpile(_drag_rect(), not _unmark)
 		Tool.STAIRS:
 			if _unmark:
-				_sim.remove_structures(_drag_rect())
+				_sim.mark_removal(_drag_rect(), true)
 			else:
 				_sim.mark_stairs(_drag_diagonal(), true)
 		Tool.FLOOR:
 			if _unmark:
-				_sim.remove_structures(_drag_rect())
+				_sim.mark_removal(_drag_rect(), true)
 			else:
 				_sim.mark_floors(_drag_rect(), true)
 		Tool.REMOVE_STRUCTURE:
-			_sim.remove_structures(_drag_rect())
+			# Left drag marks for removal; right drag takes the mark off again.
+			_sim.mark_removal(_drag_rect(), not _unmark)
 		Tool.ROOM:
 			if _unmark:
 				_sim.remove_rooms(_drag_rect())
@@ -106,7 +109,9 @@ func _show_preview() -> void:
 				_view.show_tile_selection(_drag_diagonal(), STAIRS_COLOR)
 		Tool.FLOOR:
 			_view.show_selection(_drag_rect(), UNMARK_COLOR if _unmark else FLOOR_COLOR)
-		Tool.REMOVE_STRUCTURE, Tool.REMOVE_ROOM:
+		Tool.REMOVE_STRUCTURE:
+			_view.show_selection(_drag_rect(), KEEP_COLOR if _unmark else UNMARK_COLOR)
+		Tool.REMOVE_ROOM:
 			_view.show_selection(_drag_rect(), UNMARK_COLOR)
 		Tool.ROOM:
 			_show_room_preview()

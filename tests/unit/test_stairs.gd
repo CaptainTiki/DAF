@@ -126,61 +126,92 @@ func test_floor_costs_wood() -> void:
 	assert_eq(_sim.storage.totals[SimFactory.WOOD], 0)
 
 
-# --- Removing structures ---
+# --- Taking structures down ---
 
-func test_removing_a_plan_cancels_it() -> void:
+func test_removing_a_plan_cancels_it_at_once() -> void:
 	_sim.mark_stairs(FLIGHT, true)
 	_sim.mark_floors(Rect2i(9, 5, 2, 1), true)
 	_dwarf.idle_ticks_left = 100000
-	assert_eq(_sim.remove_structures(Rect2i(8, 4, 10, 8)), 5)
+	assert_eq(_sim.mark_removal(Rect2i(8, 4, 10, 8), true), 5)
 	assert_eq(_sim.sites.size(), 0)
 	assert_false(_sim.grid.is_build_marked(13, 7))
 	assert_false(_sim.grid.is_floor_marked(9, 5))
+	assert_false(_sim.grid.is_remove_marked(13, 7), "nothing was built, so nothing to take down")
 	assert_eq(_sim.board.jobs_of(Job.Kind.BUILD).size(), 0)
 
 
-func test_removing_built_stairs_and_floors_gives_the_wood_back() -> void:
+func test_built_structures_are_marked_then_taken_down_by_a_dwarf() -> void:
 	var config := SimFactory.make_config()
 	config.structure_item = config.items[SimFactory.WOOD]
 	_sim = SimFactory.make_sim(config)
+	_dwarf = _sim.hire_dwarf()
+	SimFactory.place_dwarf(_dwarf, Vector2i(10, 6))
 	_build_flight()
-	_sim.grid.set_open(14, 7)
-	_sim.grid.add_structure(14, 7, TileGrid.STRUCTURE_FLOOR)
-	assert_eq(_sim.remove_structures(Rect2i(13, 7, 3, 3)), 4)
+	assert_eq(_sim.mark_removal(Rect2i(13, 7, 3, 3), true), 3)
+	assert_true(_sim.grid.is_remove_marked(13, 7))
+	assert_true(_sim.grid.has_stair(13, 7), "still there until a dwarf does the work")
+	assert_eq(_sim.mark_removal(Rect2i(13, 7, 3, 3), true), 0, "already marked")
+	SimFactory.run(_sim, 600)
 	for tile: Vector2i in FLIGHT:
-		assert_false(_sim.grid.has_stair(tile.x, tile.y))
-	assert_false(_sim.grid.has_floor(14, 7))
-	assert_eq(_sim.items.size(), 4, "one wood each")
+		assert_false(_sim.grid.has_stair(tile.x, tile.y), "stair at %s" % tile)
+		assert_false(_sim.grid.is_remove_marked(tile.x, tile.y))
+	assert_eq(_sim.items.size(), 3, "one wood back per tile")
+	assert_true(Pathfinder.can_stand(_sim.grid, _dwarf.pos.x, _dwarf.pos.y), "the dwarf ended on solid ground")
+	assert_eq(_sim.sites.size(), 0)
 
 
-func test_stair_with_a_dwarf_on_it_is_not_removed() -> void:
+func test_removal_mark_can_be_taken_off_again() -> void:
 	_build_flight()
-	SimFactory.place_dwarf(_dwarf, Vector2i(14, 8))
-	assert_eq(_sim.remove_structures(Rect2i(13, 7, 3, 3)), 2)
-	assert_true(_sim.grid.has_stair(14, 8), "the one underfoot stays")
-	assert_false(_sim.grid.has_stair(13, 7))
+	_dwarf.idle_ticks_left = 100000
+	_sim.mark_removal(Rect2i(13, 7, 3, 3), true)
+	assert_eq(_sim.mark_removal(Rect2i(13, 7, 3, 3), false), 3)
+	assert_false(_sim.grid.is_remove_marked(13, 7))
+	assert_eq(_sim.board.jobs_of(Job.Kind.BUILD).size(), 0)
+	_dwarf.idle_ticks_left = 1
+	SimFactory.run(_sim, 300)
+	assert_true(_sim.grid.has_stair(13, 7))
 
 
-func test_floor_with_a_dwarf_on_it_is_not_removed() -> void:
-	SimFactory.carve(_sim, Rect2i(11, 7, 1, 4))
-	_sim.grid.add_structure(11, 7, TileGrid.STRUCTURE_FLOOR)
-	SimFactory.place_dwarf(_dwarf, Vector2i(11, 6))
-	assert_eq(_sim.remove_structures(Rect2i(11, 7, 1, 1)), 0)
-	assert_true(_sim.grid.has_floor(11, 7))
-	SimFactory.place_dwarf(_dwarf, Vector2i(9, 6))
-	assert_eq(_sim.remove_structures(Rect2i(11, 7, 1, 1)), 1)
+func test_a_flight_through_rock_is_taken_down_without_stranding_the_dwarf() -> void:
+	# The only way to the room below is this flight. The dwarf starts below.
+	_build_flight()
+	SimFactory.carve(_sim, Rect2i(16, 8, 3, 3))
+	SimFactory.place_dwarf(_dwarf, Vector2i(17, 10))
+	_sim.mark_removal(Rect2i(13, 7, 3, 3), true)
+	for i in 800:
+		_sim.tick()
+		assert_true(Pathfinder.is_supported(_sim.grid, _dwarf.pos.x, _dwarf.pos.y), "never left hanging")
+	assert_true(Pathfinder.can_stand(_sim.grid, _dwarf.pos.x, _dwarf.pos.y), "ends on real ground, not inside the rock")
+	for tile: Vector2i in FLIGHT:
+		assert_false(_sim.grid.has_stair(tile.x, tile.y), "stair at %s" % tile)
 
 
-func test_items_fall_when_the_floor_under_them_is_removed() -> void:
+func test_stair_with_another_dwarf_on_it_waits() -> void:
+	_build_flight()
+	var other := _sim.hire_dwarf()
+	SimFactory.place_dwarf(other, Vector2i(14, 8))
+	other.idle_ticks_left = 100000
+	_sim.mark_removal(Rect2i(14, 8, 1, 1), true)
+	SimFactory.run(_sim, 300)
+	assert_true(_sim.grid.has_stair(14, 8), "not while someone is standing on it")
+	SimFactory.place_dwarf(other, Vector2i(9, 6))
+	SimFactory.run(_sim, 300)
+	assert_false(_sim.grid.has_stair(14, 8))
+
+
+func test_built_floor_is_taken_down_and_what_was_on_it_falls() -> void:
 	SimFactory.carve(_sim, Rect2i(11, 7, 1, 4))
 	_sim.grid.add_structure(11, 7, TileGrid.STRUCTURE_FLOOR)
 	var item: Item = _sim.spawn_item(SimFactory.DIRT_BALL, Vector2i(11, 6))
 	_dwarf.idle_ticks_left = 100000
 	SimFactory.run(_sim, 10)
 	assert_true(item.settled)
-	_sim.remove_structures(Rect2i(11, 7, 1, 1))
-	SimFactory.run(_sim, 30)
+	_sim.mark_removal(Rect2i(11, 7, 1, 1), true)
+	_dwarf.idle_ticks_left = 1
+	SimFactory.run(_sim, 300)
+	assert_false(_sim.grid.has_floor(11, 7))
 	assert_eq(item.pos, Vector2i(11, 10), "down to the bottom of the shaft")
+	assert_ne(_dwarf.pos, Vector2i(11, 10), "the dwarf did not go down with it")
 
 func test_stairs_can_be_walked_through_rock() -> void:
 	_build_flight()

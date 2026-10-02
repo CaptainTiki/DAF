@@ -261,7 +261,9 @@ func _try_work(sim: Simulation, dwarf: Dwarf, flood_map: FloodMap, jobs: Array[J
 			continue
 		if job.kind == Job.Kind.CRAFT and _is_held_for_another(sim, dwarf, job.station):
 			continue
-		var spot: Vector2i = Pathfinder.best_access(flood_map, job.tile.x, job.tile.y, stand_on_tile)
+		var removing: bool = job.kind == Job.Kind.BUILD and job.site.removing
+		# Nobody takes down what they are standing on.
+		var spot: Vector2i = Pathfinder.best_access(flood_map, job.tile.x, job.tile.y, stand_on_tile and not removing)
 		if spot == Pathfinder.NO_SPOT:
 			continue
 		# Nearest first; among equals take the lowest tile so balls land on the floor.
@@ -269,6 +271,10 @@ func _try_work(sim: Simulation, dwarf: Dwarf, flood_map: FloodMap, jobs: Array[J
 		# the crew along the work face instead of stacking them on one tile.
 		var score: int = flood_map.distance_to(spot.x, spot.y) * 1000 - job.tile.y
 		score += _dwarves_bound_for(sim, dwarf, spot) * CROWDED_SPOT_PENALTY
+		if removing:
+			# Taking things down starts at the far end, so the dwarf works back
+			# towards the way out and never cuts off the rest of the run.
+			score = -score
 		if best == null or score < best_score:
 			best = job
 			best_spot = spot
@@ -299,7 +305,7 @@ func _start_job(sim: Simulation, dwarf: Dwarf, job: Job, path: Array[Vector2i]) 
 
 func _begin_work(sim: Simulation, dwarf: Dwarf, job: Job) -> void:
 	var in_position: bool = Pathfinder.can_reach(dwarf.pos, job.tile)
-	if job.kind != Job.Kind.DIG:
+	if job.kind != Job.Kind.DIG and not (job.kind == Job.Kind.BUILD and job.site.removing):
 		in_position = Pathfinder.can_access(dwarf.pos, job.tile)
 	if not in_position or not _is_job_valid(sim, job):
 		_abandon_job(sim, dwarf, true)
@@ -322,6 +328,10 @@ func _tick_work(sim: Simulation, dwarf: Dwarf) -> void:
 		return
 	dwarf.work_progress += 1
 	if dwarf.work_progress < dwarf.work_total:
+		return
+	if job.kind == Job.Kind.BUILD and not sim.can_complete_site(job.site, dwarf):
+		# Someone is on it, or taking it down would strand this dwarf. Try later.
+		_abandon_job(sim, dwarf, true)
 		return
 	dwarf.job = null
 	match job.kind:

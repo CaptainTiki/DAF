@@ -20,6 +20,8 @@ const FLAG_BUILD_MARK: int = 8
 const FLAG_ROOM: int = 16
 ## A floor is planned here. FLAG_BUILD_MARK is the same for stairs.
 const FLAG_FLOOR_MARK: int = 32
+## Something built here is to be taken down.
+const FLAG_REMOVE_MARK: int = 64
 
 var width: int
 var height: int
@@ -105,6 +107,10 @@ func is_stockpile(x: int, y: int) -> bool:
 
 func is_build_marked(x: int, y: int) -> bool:
 	return has_flag(x, y, FLAG_BUILD_MARK)
+
+
+func is_remove_marked(x: int, y: int) -> bool:
+	return has_flag(x, y, FLAG_REMOVE_MARK)
 
 
 func is_floor_marked(x: int, y: int) -> bool:

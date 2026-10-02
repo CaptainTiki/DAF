@@ -37,7 +37,8 @@ Judgment calls made while building, newest milestone first. Each entry says what
 - Structures are bits on the tile, so one tile can hold both a stair and a floor.
 - Where a stair passes behind rock that hasn't been dug, the rock is still the floor. Dig it out and there is a hole until a floor is built over it; dwarves can still cross by dipping down the stair and back up.
 - Stairs and floors cost 1 wood per tile (`structure_item`).
-- Removing works on plans and on built structures, and gives the wood back on the spot. It is immediate; dwarves don't do the work. A stair with a dwarf on it, or a floor with a dwarf standing on it, is left alone.
+- Removing a plan cancels it at once. Removing something built marks it, and a dwarf walks over and takes it down (`remove_ticks`); the wood drops on the spot. Right-drag with the Remove tool takes the mark off again.
+- Taking down starts at the far end of a run, so the dwarf works back towards the way out. A dwarf never takes down what they are standing on, waits while another dwarf is on it, and refuses if it would leave them with no way back to solid ground.
 - The Build button opens a picker (Stairs, Floor, Remove); the Room picker has Remove too. Right-drag with any build or room tool also removes.
 - Stairs are drawn as half planks from each stair tile towards each stair it touches, so runs that meet at a turn join up.
 - Walls and doors are not built yet. A wall would turn open space back into solid; a door has nothing to do until there are threats.
