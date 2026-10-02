@@ -35,7 +35,8 @@ var kind_served: PackedInt32Array
 
 var _driver := DwarfDriver.new()
 var _unsettled: Array[Item] = []
-var _stair_sites: Dictionary[Vector2i, BuildSite] = {}
+## Planned structures, keyed by (x, y, STRUCTURE_ bit).
+var _structure_sites: Dictionary[Vector3i, BuildSite] = {}
 var _next_item_id: int = 1
 var _name_order: PackedInt32Array
 ## Item type dropped per material index.
@@ -189,26 +190,50 @@ func mark_stockpile(rect: Rect2i, marked: bool) -> int:
 
 ## Plans or cancels stairs on the given tiles. Stairs are built in the back lane,
 ## so the tile can be rock, floor or open room. Cancelling only removes plans;
-## built stairs stay. Returns how many changed.
+## see remove_structures for what is already built. Returns how many changed.
 func mark_stairs(tiles: Array[Vector2i], marked: bool) -> int:
-	var changed: int = 0
-	var bounds := Rect2i()
-	for tile: Vector2i in tiles:
-		if not grid.in_bounds(tile.x, tile.y) or grid.material_at(tile.x, tile.y) == TileGrid.NO_MATERIAL:
-			continue
-		if grid.has_stair(tile.x, tile.y) or grid.is_build_marked(tile.x, tile.y) == marked:
-			continue
-		grid.set_flag(tile.x, tile.y, TileGrid.FLAG_BUILD_MARK, marked)
-		if marked:
-			_stair_sites[tile] = add_site(tile, item_type(config.stair_item), config.stair_item_count, config.stair_build_ticks, "the stairs", null)
-		else:
-			cancel_site(_stair_sites[tile])
-			_stair_sites.erase(tile)
-		bounds = Rect2i(tile, Vector2i.ONE) if changed == 0 else bounds.expand(tile).expand(tile + Vector2i.ONE)
-		changed += 1
-	if changed > 0:
-		marks_changed.emit(bounds.grow(1))
-	return changed
+	return _mark_structure(TileGrid.STRUCTURE_STAIR, tiles, marked)
+
+
+## Plans or cancels built floors on the open tiles in the rect. A floor is a
+## platform along the top of its tile: it is walked on from the tile above.
+## Returns how many changed.
+func mark_floors(rect: Rect2i, marked: bool) -> int:
+	var tiles: Array[Vector2i] = []
+	for y in range(rect.position.y, rect.end.y):
+		for x in range(rect.position.x, rect.end.x):
+			tiles.append(Vector2i(x, y))
+	return _mark_structure(TileGrid.STRUCTURE_FLOOR, tiles, marked)
+
+
+## Takes away every structure in the rect, planned or built. Wood that went
+## into it drops on the spot. A stair with a dwarf on it, or a floor with a
+## dwarf standing on it, is left alone. Returns how many were removed.
+func remove_structures(rect: Rect2i) -> int:
+	var removed: int = 0
+	var refund: int = item_type(config.structure_item)
+	for y in range(rect.position.y, rect.end.y):
+		for x in range(rect.position.x, rect.end.x):
+			if not grid.in_bounds(x, y):
+				continue
+			var tile := Vector2i(x, y)
+			for structure: int in [TileGrid.STRUCTURE_STAIR, TileGrid.STRUCTURE_FLOOR]:
+				var key := Vector3i(x, y, structure)
+				if _structure_sites.has(key):
+					grid.set_flag(x, y, _mark_flag(structure), false)
+					cancel_site(_structure_sites[key])
+					_structure_sites.erase(key)
+					removed += 1
+				elif grid.structure_at(x, y) & structure != 0 and not _is_structure_in_use(tile, structure):
+					grid.remove_structure(x, y, structure)
+					spill(refund, config.structure_item_count, tile)
+					if structure == TileGrid.STRUCTURE_FLOOR:
+						_drop_what_stood_on(tile)
+					tile_changed.emit(x, y)
+					removed += 1
+	if removed > 0:
+		marks_changed.emit(rect.grow(1))
+	return removed
 
 
 func can_place_room(def: RoomDef, rect: Rect2i) -> bool:
@@ -282,9 +307,9 @@ func complete_site(site: BuildSite) -> void:
 	if site.slot != null:
 		rooms.slot_built(self, site.slot)
 		return
-	grid.set_flag(site.tile.x, site.tile.y, TileGrid.FLAG_BUILD_MARK, false)
-	grid.set_structure(site.tile.x, site.tile.y, TileGrid.STRUCTURE_STAIR)
-	_stair_sites.erase(site.tile)
+	grid.set_flag(site.tile.x, site.tile.y, _mark_flag(site.structure), false)
+	grid.add_structure(site.tile.x, site.tile.y, site.structure)
+	_structure_sites.erase(Vector3i(site.tile.x, site.tile.y, site.structure))
 	tile_changed.emit(site.tile.x, site.tile.y)
 
 
@@ -375,6 +400,61 @@ func remove_item(item: Item) -> void:
 
 
 # --- Internals ---
+
+func _mark_structure(structure: int, tiles: Array[Vector2i], marked: bool) -> int:
+	var flag: int = _mark_flag(structure)
+	var is_floor: bool = structure == TileGrid.STRUCTURE_FLOOR
+	var changed: int = 0
+	var bounds := Rect2i()
+	for tile: Vector2i in tiles:
+		if not grid.in_bounds(tile.x, tile.y) or grid.material_at(tile.x, tile.y) == TileGrid.NO_MATERIAL:
+			continue
+		# A floor spans open space; stairs can go through anything.
+		if is_floor and marked and not grid.is_open(tile.x, tile.y):
+			continue
+		if grid.structure_at(tile.x, tile.y) & structure != 0 or grid.has_flag(tile.x, tile.y, flag) == marked:
+			continue
+		grid.set_flag(tile.x, tile.y, flag, marked)
+		var key := Vector3i(tile.x, tile.y, structure)
+		if marked:
+			var work_ticks: int = config.floor_build_ticks if is_floor else config.stair_build_ticks
+			var purpose: String = "the floor" if is_floor else "the stairs"
+			var site: BuildSite = add_site(tile, item_type(config.structure_item), config.structure_item_count, work_ticks, purpose, null)
+			site.structure = structure
+			_structure_sites[key] = site
+		else:
+			cancel_site(_structure_sites[key])
+			_structure_sites.erase(key)
+		bounds = Rect2i(tile, Vector2i.ONE) if changed == 0 else bounds.expand(tile).expand(tile + Vector2i.ONE)
+		changed += 1
+	if changed > 0:
+		marks_changed.emit(bounds.grow(1))
+	return changed
+
+
+func _mark_flag(structure: int) -> int:
+	return TileGrid.FLAG_FLOOR_MARK if structure == TileGrid.STRUCTURE_FLOOR else TileGrid.FLAG_BUILD_MARK
+
+
+## A dwarf is on this stair, or standing on this floor.
+func _is_structure_in_use(tile: Vector2i, structure: int) -> bool:
+	var spot: Vector2i = tile if structure == TileGrid.STRUCTURE_STAIR else tile + Vector2i.UP
+	for dwarf: Dwarf in dwarves:
+		if dwarf.pos == spot or dwarf.from_pos == spot:
+			return true
+	return false
+
+
+## After a floor is taken away: loose items on it fall, and a stockpile spot on it goes.
+func _drop_what_stood_on(tile: Vector2i) -> void:
+	if grid.is_solid(tile.x, tile.y):
+		return
+	var above: Vector2i = tile + Vector2i.UP
+	for item: Item in items.values():
+		if item.state == Item.State.LOOSE and item.settled and item.pos == above:
+			_unsettle(item)
+	if grid.is_stockpile(above.x, above.y):
+		_remove_stockpile_tile(above)
 
 func _create_item(type: int, pos: Vector2i) -> Item:
 	var item := Item.new()

@@ -21,7 +21,7 @@ func before_each() -> void:
 
 func _build_flight() -> void:
 	for tile: Vector2i in FLIGHT:
-		_sim.grid.set_structure(tile.x, tile.y, TileGrid.STRUCTURE_STAIR)
+		_sim.grid.add_structure(tile.x, tile.y, TileGrid.STRUCTURE_STAIR)
 
 
 func test_marking_plans_stairs_in_rock_and_posts_jobs() -> void:
@@ -57,38 +57,130 @@ func test_floor_over_a_stair_stays_walkable() -> void:
 	assert_true(Pathfinder.can_step(_sim.grid, 13, 6, 14, 6))
 
 
-func test_floor_dug_out_around_a_stairwell_can_still_be_crossed() -> void:
+# --- Built floors ---
+
+func test_dug_out_floor_at_a_stairwell_is_a_hole_until_a_floor_is_built() -> void:
 	_build_flight()
-	# The stairwell passes through the floor (row 7) at columns 13 and 14.
-	# Dig both floor tiles away; the walkway that comes with the stairs remains.
+	# The stairwell passes through the room's floor (row 7) at columns 13 and 14.
 	_sim.grid.set_open(13, 7)
 	_sim.grid.set_open(14, 7)
-	assert_true(_sim.grid.has_walkway(13, 7))
-	assert_true(_sim.grid.has_walkway(14, 7), "the head space of the next stair")
-	assert_false(_sim.grid.has_walkway(15, 7), "no stairwell here")
-	assert_true(Pathfinder.can_stand(_sim.grid, 13, 6))
-	assert_true(Pathfinder.can_step(_sim.grid, 12, 6, 13, 6), "straight across, no dip")
+	assert_false(Pathfinder.can_stand(_sim.grid, 14, 6), "nothing underfoot")
+	var map := Pathfinder.flood(_sim.grid, Vector2i(10, 6))
+	assert_eq(map.distance_to(13, 6), -1, "can't stand over the hole")
+
+	assert_eq(_sim.mark_floors(Rect2i(13, 7, 2, 1), true), 2)
+	assert_true(_sim.grid.is_floor_marked(13, 7))
+	SimFactory.run(_sim, 600)
+	assert_true(_sim.grid.has_floor(13, 7))
+	assert_true(_sim.grid.has_floor(14, 7))
+	assert_true(_sim.grid.has_stair(13, 7), "the stair shares the tile")
+	assert_false(_sim.grid.is_floor_marked(13, 7))
+	assert_true(Pathfinder.can_step(_sim.grid, 12, 6, 13, 6), "straight across")
 	assert_true(Pathfinder.can_step(_sim.grid, 13, 6, 14, 6))
-	SimFactory.place_dwarf(_dwarf, Vector2i(13, 6))
-	SimFactory.run(_sim, 30)
-	assert_eq(_dwarf.pos, Vector2i(13, 6), "and nobody falls in")
+	assert_true(Pathfinder.can_step(_sim.grid, 12, 6, 13, 7), "and the stairs still work")
 
 
-func test_items_rest_on_a_stairwell_walkway() -> void:
-	_build_flight()
-	_sim.grid.set_open(13, 7)
-	var item: Item = _sim.spawn_item(SimFactory.DIRT_BALL, Vector2i(13, 5))
+func test_floor_can_only_be_planned_on_open_tiles() -> void:
+	assert_eq(_sim.mark_floors(Rect2i(15, 5, 3, 1), true), 0, "solid rock")
+	assert_eq(_sim.mark_floors(Rect2i(9, 1, 3, 1), true), 0, "open sky")
+	assert_eq(_sim.mark_floors(Rect2i(9, 5, 3, 1), true), 3, "inside the room")
+	assert_eq(_sim.mark_floors(Rect2i(9, 5, 3, 1), true), 0, "already planned")
+
+
+func test_floor_splits_a_tall_room_into_two_storeys() -> void:
+	# Open a shaft below the room: columns 11..12, rows 7..10, floor at row 11.
+	SimFactory.carve(_sim, Rect2i(11, 7, 2, 4))
+	assert_false(Pathfinder.can_stand(_sim.grid, 11, 6), "the room floor is gone here")
+	_sim.mark_floors(Rect2i(11, 7, 2, 1), true)
+	SimFactory.run(_sim, 600)
+	assert_true(_sim.grid.has_floor(11, 7))
+	assert_true(_sim.grid.has_floor(12, 7))
+	assert_true(Pathfinder.can_stand(_sim.grid, 11, 6), "upper storey, on the planks")
+	assert_true(Pathfinder.can_stand(_sim.grid, 11, 10), "lower storey, under them")
+	assert_true(_sim.grid.is_open(11, 7), "the space under the planks stays open")
+
+
+func test_items_rest_on_a_built_floor() -> void:
+	SimFactory.carve(_sim, Rect2i(11, 7, 1, 4))
+	_sim.grid.add_structure(11, 7, TileGrid.STRUCTURE_FLOOR)
+	var item: Item = _sim.spawn_item(SimFactory.DIRT_BALL, Vector2i(11, 5))
 	SimFactory.run(_sim, 30)
-	assert_eq(item.pos, Vector2i(13, 6))
+	assert_eq(item.pos, Vector2i(11, 6))
 	assert_true(item.settled)
 
 
-func test_stairs_in_mid_air_have_no_walkway() -> void:
-	_build_flight()
-	# Row 8 and 9 are not floor rows, so a stair there is just a stair.
-	assert_false(_sim.grid.has_walkway(14, 8))
-	assert_false(_sim.grid.has_walkway(15, 9))
+func test_floor_costs_wood() -> void:
+	var config := SimFactory.make_config()
+	config.structure_item = config.items[SimFactory.WOOD]
+	_sim = SimFactory.make_sim(config)
+	_dwarf = _sim.hire_dwarf()
+	SimFactory.place_dwarf(_dwarf, Vector2i(10, 6))
+	SimFactory.carve(_sim, Rect2i(13, 7, 1, 4))
+	_sim.mark_floors(Rect2i(13, 7, 1, 1), true)
+	SimFactory.run(_sim, 300)
+	assert_false(_sim.grid.has_floor(13, 7), "no wood, no floor")
+	var pile: Pile = _sim.storage.add_pile(Pile.Kind.SUPPLY, Vector2i(9, 6), Pile.UNLIMITED)
+	_sim.storage.put(pile, SimFactory.WOOD)
+	SimFactory.run(_sim, 600)
+	assert_true(_sim.grid.has_floor(13, 7))
+	assert_eq(_sim.storage.totals[SimFactory.WOOD], 0)
 
+
+# --- Removing structures ---
+
+func test_removing_a_plan_cancels_it() -> void:
+	_sim.mark_stairs(FLIGHT, true)
+	_sim.mark_floors(Rect2i(9, 5, 2, 1), true)
+	_dwarf.idle_ticks_left = 100000
+	assert_eq(_sim.remove_structures(Rect2i(8, 4, 10, 8)), 5)
+	assert_eq(_sim.sites.size(), 0)
+	assert_false(_sim.grid.is_build_marked(13, 7))
+	assert_false(_sim.grid.is_floor_marked(9, 5))
+	assert_eq(_sim.board.jobs_of(Job.Kind.BUILD).size(), 0)
+
+
+func test_removing_built_stairs_and_floors_gives_the_wood_back() -> void:
+	var config := SimFactory.make_config()
+	config.structure_item = config.items[SimFactory.WOOD]
+	_sim = SimFactory.make_sim(config)
+	_build_flight()
+	_sim.grid.set_open(14, 7)
+	_sim.grid.add_structure(14, 7, TileGrid.STRUCTURE_FLOOR)
+	assert_eq(_sim.remove_structures(Rect2i(13, 7, 3, 3)), 4)
+	for tile: Vector2i in FLIGHT:
+		assert_false(_sim.grid.has_stair(tile.x, tile.y))
+	assert_false(_sim.grid.has_floor(14, 7))
+	assert_eq(_sim.items.size(), 4, "one wood each")
+
+
+func test_stair_with_a_dwarf_on_it_is_not_removed() -> void:
+	_build_flight()
+	SimFactory.place_dwarf(_dwarf, Vector2i(14, 8))
+	assert_eq(_sim.remove_structures(Rect2i(13, 7, 3, 3)), 2)
+	assert_true(_sim.grid.has_stair(14, 8), "the one underfoot stays")
+	assert_false(_sim.grid.has_stair(13, 7))
+
+
+func test_floor_with_a_dwarf_on_it_is_not_removed() -> void:
+	SimFactory.carve(_sim, Rect2i(11, 7, 1, 4))
+	_sim.grid.add_structure(11, 7, TileGrid.STRUCTURE_FLOOR)
+	SimFactory.place_dwarf(_dwarf, Vector2i(11, 6))
+	assert_eq(_sim.remove_structures(Rect2i(11, 7, 1, 1)), 0)
+	assert_true(_sim.grid.has_floor(11, 7))
+	SimFactory.place_dwarf(_dwarf, Vector2i(9, 6))
+	assert_eq(_sim.remove_structures(Rect2i(11, 7, 1, 1)), 1)
+
+
+func test_items_fall_when_the_floor_under_them_is_removed() -> void:
+	SimFactory.carve(_sim, Rect2i(11, 7, 1, 4))
+	_sim.grid.add_structure(11, 7, TileGrid.STRUCTURE_FLOOR)
+	var item: Item = _sim.spawn_item(SimFactory.DIRT_BALL, Vector2i(11, 6))
+	_dwarf.idle_ticks_left = 100000
+	SimFactory.run(_sim, 10)
+	assert_true(item.settled)
+	_sim.remove_structures(Rect2i(11, 7, 1, 1))
+	SimFactory.run(_sim, 30)
+	assert_eq(item.pos, Vector2i(11, 10), "down to the bottom of the shaft")
 
 func test_stairs_can_be_walked_through_rock() -> void:
 	_build_flight()

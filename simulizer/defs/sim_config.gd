@@ -42,9 +42,11 @@ extends Resource
 @export var post_patience_ticks: int = 200
 ## Ticks to build one tile of stairs once its materials are there.
 @export var stair_build_ticks: int = 50
-## What a tile of stairs is made of. Null makes stairs free.
-@export var stair_item: ItemDef
-@export var stair_item_count: int = 1
+## Ticks to build one tile of floor once its materials are there.
+@export var floor_build_ticks: int = 40
+## What a tile of stairs or floor is made of. Null makes structures free.
+@export var structure_item: ItemDef
+@export var structure_item_count: int = 1
 ## Storage units a pile holds. An item takes ItemDef.size units.
 @export var pile_capacity: int = 10
 ## Minimum gap before a repeated request bumps its count again.

@@ -51,11 +51,11 @@ tooltip_text = "Drag along a floor to mark storage. Right-drag or Shift-drag to 
 toggle_mode = true
 text = "Stockpile"
 
-[node name="StairsButton" type="Button" parent="Bar"]
+[node name="BuildButton" type="Button" parent="Bar"]
 layout_mode = 2
-tooltip_text = "Drag diagonally to plan stairs. They can run through rock and floors. Right-drag or Shift-drag cancels a plan."
+tooltip_text = "Build stairs and floors, or remove them."
 toggle_mode = true
-text = "Stairs"
+text = "Build"
 
 [node name="RoomButton" type="Button" parent="Bar"]
 layout_mode = 2
@@ -130,6 +130,40 @@ text = "Clear"
 layout_mode = 2
 size_flags_vertical = 3
 bbcode_enabled = true
+
+[node name="BuildPanel" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 4.0
+offset_top = -68.0
+offset_right = 484.0
+offset_bottom = -34.0
+grow_vertical = 0
+
+[node name="Row" type="HBoxContainer" parent="BuildPanel"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="BuildPanel/Row"]
+layout_mode = 2
+text = "Build:"
+
+[node name="StairsOption" type="Button" parent="BuildPanel/Row"]
+layout_mode = 2
+tooltip_text = "Drag diagonally. Stairs can run through rock. 1 wood per tile."
+text = "Stairs"
+
+[node name="FloorOption" type="Button" parent="BuildPanel/Row"]
+layout_mode = 2
+tooltip_text = "Drag across open space. Dwarves walk on top of it. 1 wood per tile."
+text = "Floor"
+
+[node name="RemoveOption" type="Button" parent="BuildPanel/Row"]
+layout_mode = 2
+tooltip_text = "Drag over stairs and floors, planned or built, to take them away. The wood is given back."
+text = "Remove"
 
 [node name="RoomPanel" type="PanelContainer" parent="."]
 visible = false

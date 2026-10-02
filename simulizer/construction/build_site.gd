@@ -8,8 +8,10 @@ var tile: Vector2i
 var request: Request
 ## Work once the materials are there. 0 means it is done the moment they arrive.
 var work_ticks: int = 0
-## The room slot this fills. Null for stairs.
+## The room slot this fills. Null for a structure.
 var slot: RoomSlot
+## The TileGrid.STRUCTURE_ bit this builds, when it is not a room slot.
+var structure: int = 0
 ## The job on the board for the work part. Null if work_ticks is 0.
 var job: Job
 var done: bool = false

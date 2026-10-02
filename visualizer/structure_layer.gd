@@ -1,23 +1,31 @@
 class_name StructureLayer
 extends MultiMeshInstance3D
-## Draws built structures in the back lane. For now that means stairs: one
-## sloped plank per stair tile, running through the point where a dwarf's feet go.
+## Draws built structures: stairs in the back lane, and floors.
 ##
-## Where a stairwell passes through a floor, the floor is drawn cut away to show
-## the stairs, with a thin walkway strip along the top that dwarves cross on.
-## The walkway is part of the stairs: it is there whether the floor's rock is
-## intact or has been dug out.
+## Stairs are drawn as half planks, one from the middle of each stair tile
+## towards each stair it connects to, so runs join up where they meet and a
+## zig-zag turns a corner instead of leaving a gap.
+##
+## Where a stairwell passes behind rock, the rock is drawn cut away to show the
+## stairs; a strip of that rock is kept along the top, where dwarves walk.
+## A built floor is a plank along the top of its tile.
 
 const STAIR_COLOR := Color(0.62, 0.45, 0.25)
+const FLOOR_COLOR := Color(0.7, 0.52, 0.3)
 ## Drop the plank slightly so feet rest on top of it.
 const FOOT_CLEARANCE: float = 0.15
-const WALKWAY_THICKNESS: float = 0.2
+const STRIP_THICKNESS: float = 0.2
+## The plank mesh is one full tile diagonal long; a half plank is scaled to
+## this much of it, a little over half so neighbours overlap.
+const HALF_PLANK_SCALE: float = 0.54
+const DIAGONALS: Array[Vector2i] = [Vector2i(-1, -1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(1, 1)]
 
-@onready var _walkways: MultiMeshInstance3D = $Walkways
+@onready var _strips: MultiMeshInstance3D = $Walkways
 
 var _sim: Simulation
 var _grid: TileGrid
-var _tiles: Array[Vector2i] = []
+var _stairs: Array[Vector2i] = []
+var _floors: Array[Vector2i] = []
 
 
 func bind(sim: Simulation) -> void:
@@ -25,66 +33,93 @@ func bind(sim: Simulation) -> void:
 	_grid = sim.grid
 	for y in _grid.height:
 		for x in _grid.width:
-			if _grid.has_stair(x, y):
-				_tiles.append(Vector2i(x, y))
+			_track(Vector2i(x, y))
 	_rebuild()
 
 
-## Call when a tile changes. Picks up newly built stairs, and digging around
-## existing ones, which can add or remove a walkway strip.
+## Call when a tile changes. Picks up structures built or removed there, and
+## digging around existing ones, which changes what is drawn.
 func refresh_tile(x: int, y: int) -> void:
-	var tile := Vector2i(x, y)
-	if _grid.has_stair(x, y) and not _tiles.has(tile):
-		_tiles.append(tile)
-	if not _tiles.is_empty():
+	_track(Vector2i(x, y))
+	if not _stairs.is_empty() or not _floors.is_empty() or multimesh.visible_instance_count > 0:
 		_rebuild()
 
 
+func _track(tile: Vector2i) -> void:
+	_set_listed(_stairs, tile, _grid.has_stair(tile.x, tile.y))
+	_set_listed(_floors, tile, _grid.has_floor(tile.x, tile.y))
+
+
+func _set_listed(list: Array[Vector2i], tile: Vector2i, present: bool) -> void:
+	var index: int = list.find(tile)
+	if present and index < 0:
+		list.append(tile)
+	elif not present and index >= 0:
+		list.remove_at(index)
+
+
 func _rebuild() -> void:
-	var stairs: MultiMesh = multimesh
-	var walkways: MultiMesh = _walkways.multimesh
-	_ensure_capacity(stairs, _tiles.size())
-	_ensure_capacity(walkways, _tiles.size() * 2)
-	var walkway_count: int = 0
-	for i in _tiles.size():
-		var tile: Vector2i = _tiles[i]
-		var plank_basis := Basis(Vector3.BACK, -PI * 0.25 * _slope(tile))
-		var origin: Vector3 = ViewSpace.tile_floor(tile.x, tile.y, ViewSpace.LANE_STRUCTURE)
-		origin.y -= FOOT_CLEARANCE
-		stairs.set_instance_transform(i, Transform3D(plank_basis, origin))
-		stairs.set_instance_color(i, STAIR_COLOR)
-		# The stair tile and the head space above it are both cut away.
+	var planks: MultiMesh = multimesh
+	_ensure_capacity(planks, _stairs.size() * 4)
+	var plank_count: int = 0
+	for tile: Vector2i in _stairs:
+		for direction: Vector2i in _plank_directions(tile):
+			planks.set_instance_transform(plank_count, _half_plank(tile, direction))
+			planks.set_instance_color(plank_count, STAIR_COLOR)
+			plank_count += 1
+	planks.visible_instance_count = plank_count
+
+	var strips: MultiMesh = _strips.multimesh
+	_ensure_capacity(strips, _stairs.size() * 2 + _floors.size())
+	var strip_count: int = 0
+	for tile: Vector2i in _stairs:
+		# The stair tile and the head space above it are both drawn cut away.
 		for rise in 2:
 			var y: int = tile.y - rise
-			if _needs_walkway(tile.x, y):
-				_set_walkway(walkways, walkway_count, tile.x, y)
-				walkway_count += 1
-	stairs.visible_instance_count = _tiles.size()
-	walkways.visible_instance_count = walkway_count
+			if _grid.is_solid(tile.x, y) and _grid.is_open(tile.x, y - 1) and not _grid.has_floor(tile.x, y):
+				var color: Color = _sim.material_def(_grid.material_at(tile.x, y)).color * ViewSpace.tile_jitter(tile.x, y)
+				_set_strip(strips, strip_count, tile.x, y, color)
+				strip_count += 1
+	for tile: Vector2i in _floors:
+		_set_strip(strips, strip_count, tile.x, tile.y, FLOOR_COLOR * ViewSpace.tile_jitter(tile.x, tile.y))
+		strip_count += 1
+	strips.visible_instance_count = strip_count
 
 
-## The walkway is drawn wherever the sim has one and there is room above to walk.
-func _needs_walkway(x: int, y: int) -> bool:
-	return _grid.has_walkway(x, y) and _grid.is_open(x, y - 1)
+## Which ways planks run from the middle of a stair tile: towards every stair
+## it touches diagonally. A tile at the end of a run also gets the opposite
+## half, so the run reaches the edge of its last tile; a lone tile slopes right.
+func _plank_directions(tile: Vector2i) -> Array[Vector2i]:
+	var directions: Array[Vector2i] = []
+	for diagonal: Vector2i in DIAGONALS:
+		if _grid.has_stair(tile.x + diagonal.x, tile.y + diagonal.y):
+			directions.append(diagonal)
+	if directions.is_empty():
+		directions.append(Vector2i(-1, -1))
+		directions.append(Vector2i(1, 1))
+	elif directions.size() == 1:
+		directions.append(-directions[0])
+	return directions
 
 
-func _set_walkway(mesh: MultiMesh, index: int, x: int, y: int) -> void:
-	var strip_basis := Basis.from_scale(Vector3(1.0, WALKWAY_THICKNESS, 1.0))
-	var origin := Vector3(x + 0.5, -y - WALKWAY_THICKNESS * 0.5, ViewSpace.LANE_SOLID)
-	var color: Color = _sim.material_def(_grid.material_at(x, y)).color * ViewSpace.tile_jitter(x, y)
+## A plank from the point where feet go in this tile, halfway to the same
+## point in the diagonal neighbour.
+func _half_plank(tile: Vector2i, direction: Vector2i) -> Transform3D:
+	# Tile rows grow downward; world Y grows upward.
+	var toward := Vector3(direction.x, -direction.y, 0.0)
+	var plank_basis: Basis = Basis(Vector3.BACK, atan2(toward.y, toward.x)) * Basis.from_scale(Vector3(HALF_PLANK_SCALE, 1.0, 1.0))
+	var origin: Vector3 = ViewSpace.tile_floor(tile.x, tile.y, ViewSpace.LANE_STRUCTURE) + toward * 0.25
+	origin.y -= FOOT_CLEARANCE
+	return Transform3D(plank_basis, origin)
+
+
+## A thin strip along the top edge of a tile, at the front.
+func _set_strip(mesh: MultiMesh, index: int, x: int, y: int, color: Color) -> void:
+	var strip_basis := Basis.from_scale(Vector3(1.0, STRIP_THICKNESS, 1.0))
+	var origin := Vector3(x + 0.5, -y - STRIP_THICKNESS * 0.5, ViewSpace.LANE_SOLID)
 	color.a = 1.0
 	mesh.set_instance_transform(index, Transform3D(strip_basis, origin))
 	mesh.set_instance_color(index, color)
-
-
-## 1 if the flight goes down to the right, -1 if down to the left.
-## Judged from the neighbouring stairs; a lone tile slopes right.
-func _slope(tile: Vector2i) -> float:
-	if _grid.has_stair(tile.x + 1, tile.y + 1) or _grid.has_stair(tile.x - 1, tile.y - 1):
-		return 1.0
-	if _grid.has_stair(tile.x - 1, tile.y + 1) or _grid.has_stair(tile.x + 1, tile.y - 1):
-		return -1.0
-	return 1.0
 
 
 func _ensure_capacity(mesh: MultiMesh, needed: int) -> void:

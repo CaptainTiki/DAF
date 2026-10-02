@@ -5,15 +5,21 @@ extends RefCounted
 
 const NO_MATERIAL: int = 255
 const NO_STRUCTURE: int = 0
-## Built stairs. They sit in the back lane: the tile in front can stay solid
-## (a floor others walk across) or be open room.
+## Structures are bits, so one tile can hold more than one.
+## Built stairs sit in the back lane: the tile in front can stay solid (a floor
+## others walk across) or be open room.
 const STRUCTURE_STAIR: int = 1
+## A built floor: a plank platform along the top of an open tile. It can be
+## stood on like rock, and the space under it stays open.
+const STRUCTURE_FLOOR: int = 2
 
 const FLAG_SOLID: int = 1
 const FLAG_DIG_MARK: int = 2
 const FLAG_STOCKPILE: int = 4
 const FLAG_BUILD_MARK: int = 8
 const FLAG_ROOM: int = 16
+## A floor is planned here. FLAG_BUILD_MARK is the same for stairs.
+const FLAG_FLOOR_MARK: int = 32
 
 var width: int
 var height: int
@@ -22,7 +28,7 @@ var layer_height: int
 
 var _materials: PackedByteArray
 var _flags: PackedByteArray
-## Back-lane slot per tile, for built structures (stairs) that sit behind the walkway.
+## Built structures per tile, as STRUCTURE_ bits.
 var _structures: PackedByteArray
 
 
@@ -101,8 +107,16 @@ func is_build_marked(x: int, y: int) -> bool:
 	return has_flag(x, y, FLAG_BUILD_MARK)
 
 
+func is_floor_marked(x: int, y: int) -> bool:
+	return has_flag(x, y, FLAG_FLOOR_MARK)
+
+
 func has_stair(x: int, y: int) -> bool:
-	return structure_at(x, y) == STRUCTURE_STAIR
+	return structure_at(x, y) & STRUCTURE_STAIR != 0
+
+
+func has_floor(x: int, y: int) -> bool:
+	return structure_at(x, y) & STRUCTURE_FLOOR != 0
 
 
 func structure_at(x: int, y: int) -> int:
@@ -115,23 +129,17 @@ func set_structure(x: int, y: int, structure: int) -> void:
 	_structures[y * width + x] = structure
 
 
-## True for the row that forms a layer's floor, and for the topsoil row that is
-## the floor of the surface.
-func is_floor_row(y: int) -> bool:
-	if y == first_layer_row - 1:
-		return true
-	return y >= first_layer_row and (y - first_layer_row) % layer_height == layer_height - 1
+func add_structure(x: int, y: int, structure: int) -> void:
+	_structures[y * width + x] = _structures[y * width + x] | structure
 
 
-## True where a stairwell passes through a floor. The stairs come with a
-## walkway there, so the floor can be crossed whether or not its rock is left.
-func has_walkway(x: int, y: int) -> bool:
-	return is_floor_row(y) and (has_stair(x, y) or has_stair(x, y + 1))
+func remove_structure(x: int, y: int, structure: int) -> void:
+	_structures[y * width + x] = _structures[y * width + x] & ~structure
 
 
-## Something to stand on: rock, or the walkway over a stairwell.
+## Something to stand on: rock, or a built floor.
 func is_ground(x: int, y: int) -> bool:
-	return is_solid(x, y) or has_walkway(x, y)
+	return is_solid(x, y) or has_floor(x, y)
 
 
 func layer_count() -> int:

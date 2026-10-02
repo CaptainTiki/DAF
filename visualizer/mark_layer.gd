@@ -6,6 +6,7 @@ extends MultiMeshInstance3D
 
 const DIG_COLOR := Color(1.0, 0.82, 0.2, 0.38)
 const BUILD_COLOR := Color(0.4, 1.0, 0.5, 0.4)
+const FLOOR_COLOR := Color(1.0, 0.6, 0.25, 0.4)
 const STOCKPILE_COLOR := Color(0.3, 0.65, 1.0, 0.3)
 const ROOM_ALPHA: float = 0.2
 const HIDDEN := Transform3D(Basis(Vector3.ZERO, Vector3.ZERO, Vector3.ZERO), Vector3.ZERO)
@@ -52,6 +53,9 @@ func refresh_tile(x: int, y: int) -> void:
 		lane = ViewSpace.LANE_OVERLAY
 	elif _grid.is_build_marked(x, y):
 		color = BUILD_COLOR
+		lane = ViewSpace.LANE_OVERLAY
+	elif _grid.is_floor_marked(x, y):
+		color = FLOOR_COLOR
 		lane = ViewSpace.LANE_OVERLAY
 	elif _grid.is_stockpile(x, y):
 		color = STOCKPILE_COLOR

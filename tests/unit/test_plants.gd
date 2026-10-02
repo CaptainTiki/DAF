@@ -116,4 +116,4 @@ func test_real_game_opening_stairs_down_then_a_room() -> void:
 	assert_true(sim.grid.is_open(95, 11), "the room is dug out")
 	var map := Pathfinder.flood(sim.grid, Vector2i(90, 11))
 	assert_true(map.is_reachable(80, 7), "and connected to the surface")
-	assert_eq(sim.storage.totals[sim.item_type(config.stair_item)] + sim.loose_unassigned_count(sim.item_type(config.stair_item)) >= 7, true, "three wood went into the stairs; trees may have added more")
+	assert_eq(sim.storage.totals[sim.item_type(config.structure_item)] + sim.loose_unassigned_count(sim.item_type(config.structure_item)) >= 7, true, "three wood went into the stairs; trees may have added more")

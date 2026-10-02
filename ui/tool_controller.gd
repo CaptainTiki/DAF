@@ -1,12 +1,13 @@
 class_name ToolController
 extends Node
 ## Turns mouse drags on the world into player commands for the active tool.
-## Left drag marks; right drag (or Shift + drag) unmarks.
+## Left drag marks; right drag (or Shift + drag) unmarks or removes.
 
-enum Tool { NONE, DIG, STOCKPILE, STAIRS, ROOM }
+enum Tool { NONE, DIG, STOCKPILE, STAIRS, FLOOR, REMOVE_STRUCTURE, ROOM, REMOVE_ROOM }
 
 const DIG_COLOR := Color(1.0, 0.82, 0.2, 0.3)
 const STAIRS_COLOR := Color(0.4, 1.0, 0.5, 0.4)
+const FLOOR_COLOR := Color(1.0, 0.6, 0.25, 0.4)
 const STOCKPILE_COLOR := Color(0.3, 0.65, 1.0, 0.3)
 const UNMARK_COLOR := Color(1.0, 0.3, 0.25, 0.3)
 const INVALID_COLOR := Color(1.0, 0.15, 0.1, 0.45)
@@ -76,18 +77,37 @@ func _apply() -> void:
 		Tool.STOCKPILE:
 			_sim.mark_stockpile(_drag_rect(), not _unmark)
 		Tool.STAIRS:
-			_sim.mark_stairs(_drag_diagonal(), not _unmark)
+			if _unmark:
+				_sim.remove_structures(_drag_rect())
+			else:
+				_sim.mark_stairs(_drag_diagonal(), true)
+		Tool.FLOOR:
+			if _unmark:
+				_sim.remove_structures(_drag_rect())
+			else:
+				_sim.mark_floors(_drag_rect(), true)
+		Tool.REMOVE_STRUCTURE:
+			_sim.remove_structures(_drag_rect())
 		Tool.ROOM:
 			if _unmark:
 				_sim.remove_rooms(_drag_rect())
 			elif room_def != null:
 				_sim.place_room(room_def, _drag_rect())
+		Tool.REMOVE_ROOM:
+			_sim.remove_rooms(_drag_rect())
 
 
 func _show_preview() -> void:
 	match tool:
 		Tool.STAIRS:
-			_view.show_tile_selection(_drag_diagonal(), UNMARK_COLOR if _unmark else STAIRS_COLOR)
+			if _unmark:
+				_view.show_selection(_drag_rect(), UNMARK_COLOR)
+			else:
+				_view.show_tile_selection(_drag_diagonal(), STAIRS_COLOR)
+		Tool.FLOOR:
+			_view.show_selection(_drag_rect(), UNMARK_COLOR if _unmark else FLOOR_COLOR)
+		Tool.REMOVE_STRUCTURE, Tool.REMOVE_ROOM:
+			_view.show_selection(_drag_rect(), UNMARK_COLOR)
 		Tool.ROOM:
 			_show_room_preview()
 		Tool.DIG:

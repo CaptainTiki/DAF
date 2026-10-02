@@ -56,8 +56,9 @@ static func make_config() -> SimConfig:
 	config.rooms = [make_carpentry(wood), make_hall(chair, table)]
 	config.world_gen = world
 	config.starting_item = null
-	config.stair_item = null
+	config.structure_item = null
 	config.stair_build_ticks = 10
+	config.floor_build_ticks = 10
 	config.walk_ticks = 2
 	config.idle_retry_ticks = 2
 	config.wander_chance = 0.0

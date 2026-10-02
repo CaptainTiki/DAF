@@ -100,7 +100,7 @@ func test_supply_pile_is_cleared_into_the_stockpile() -> void:
 
 func test_stairs_wait_for_their_wood() -> void:
 	var config := SimFactory.make_config()
-	config.stair_item = config.items[SimFactory.WOOD]
+	config.structure_item = config.items[SimFactory.WOOD]
 	_sim = SimFactory.make_sim(config)
 	_dwarf = _sim.hire_dwarf()
 	SimFactory.place_dwarf(_dwarf, Vector2i(10, 6))
@@ -121,7 +121,7 @@ func test_stairs_wait_for_their_wood() -> void:
 
 func test_cancelled_stairs_give_their_wood_back() -> void:
 	var config := SimFactory.make_config()
-	config.stair_item = config.items[SimFactory.WOOD]
+	config.structure_item = config.items[SimFactory.WOOD]
 	config.stair_build_ticks = 5000
 	_sim = SimFactory.make_sim(config)
 	_dwarf = _sim.hire_dwarf()

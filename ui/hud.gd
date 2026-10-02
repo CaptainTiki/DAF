@@ -21,7 +21,8 @@ signal layer_step_requested(direction: int)
 @onready var _window_column: VBoxContainer = $WindowColumn
 @onready var _dig_button: Button = $Bar/DigButton
 @onready var _stockpile_button: Button = $Bar/StockpileButton
-@onready var _stairs_button: Button = $Bar/StairsButton
+@onready var _build_button: Button = $Bar/BuildButton
+@onready var _build_panel: PanelContainer = $BuildPanel
 @onready var _room_button: Button = $Bar/RoomButton
 @onready var _room_panel: PanelContainer = $RoomPanel
 @onready var _room_row: HBoxContainer = $RoomPanel/Row
@@ -56,6 +57,10 @@ const ICON_BUTTON_HEIGHT: float = 34.0
 
 var _sim: Simulation
 var _tool_buttons: Dictionary[ToolController.Tool, Button] = {}
+## Buttons that open a picker panel, and the panel each one opens.
+var _pickers: Dictionary[Button, PanelContainer] = {}
+## What each picker button says when nothing is chosen.
+var _picker_titles: Dictionary[Button, String] = {}
 ## One button per entry in SPEEDS.
 var _speed_buttons: Array[Button] = []
 
@@ -65,11 +70,16 @@ func _ready() -> void:
 	_tool_buttons = {
 		ToolController.Tool.DIG: _dig_button,
 		ToolController.Tool.STOCKPILE: _stockpile_button,
-		ToolController.Tool.STAIRS: _stairs_button,
 	}
 	for tool: ToolController.Tool in _tool_buttons:
 		_tool_buttons[tool].toggled.connect(_on_tool_toggled.bind(tool))
-	_room_button.toggled.connect(_on_room_toggled)
+	_pickers = {_build_button: _build_panel, _room_button: _room_panel}
+	_picker_titles = {_build_button: "Build", _room_button: "Room"}
+	for button: Button in _pickers:
+		button.toggled.connect(_on_picker_toggled.bind(button))
+	$BuildPanel/Row/StairsOption.pressed.connect(_on_option_pressed.bind(_build_button, "Stairs", ToolController.Tool.STAIRS))
+	$BuildPanel/Row/FloorOption.pressed.connect(_on_option_pressed.bind(_build_button, "Floor", ToolController.Tool.FLOOR))
+	$BuildPanel/Row/RemoveOption.pressed.connect(_on_option_pressed.bind(_build_button, "Remove", ToolController.Tool.REMOVE_STRUCTURE))
 	_requests_button.toggled.connect(_on_panel_toggled.bind(_requests_panel, _debug_button))
 	_debug_button.toggled.connect(_on_panel_toggled.bind(_debug_panel, _requests_button))
 	_layer_up.pressed.connect(func() -> void: layer_step_requested.emit(-1))
@@ -96,9 +106,14 @@ func bind(sim: Simulation) -> void:
 	for def: RoomDef in sim.config.rooms:
 		var button := Button.new()
 		button.text = def.display_name
-		button.tooltip_text = "At least %d wide and %d high. Drag over dug floor. Right-drag removes a room." % [def.min_width, def.min_height]
+		button.tooltip_text = "At least %d wide and %d high. Drag over dug floor. Touching a room of the same type extends it." % [def.min_width, def.min_height]
 		button.pressed.connect(_on_room_type_pressed.bind(def))
 		_room_row.add_child(button)
+	var remove := Button.new()
+	remove.text = "Remove"
+	remove.tooltip_text = "Drag over rooms to take them away. Furniture and goods are left on the floor."
+	remove.pressed.connect(_on_option_pressed.bind(_room_button, "Remove", ToolController.Tool.REMOVE_ROOM))
+	_room_row.add_child(remove)
 	_refresh_totals()
 	_refresh_requests()
 	_refresh_dwarf_count()
@@ -129,6 +144,7 @@ func _dock(at_top: bool) -> void:
 	_pin(_bar, at_top, BAR_MARGIN, BAR_HEIGHT)
 	var panel_gap: float = BAR_MARGIN + BAR_HEIGHT + BAR_MARGIN
 	_pin(_room_panel, at_top, panel_gap, SMALL_PANEL_HEIGHT)
+	_pin(_build_panel, at_top, panel_gap, SMALL_PANEL_HEIGHT)
 	_pin(_debug_panel, at_top, panel_gap, SMALL_PANEL_HEIGHT)
 	_pin(_requests_panel, at_top, panel_gap, REQUESTS_PANEL_HEIGHT)
 	for column: VBoxContainer in [_view_column, _window_column]:
@@ -155,8 +171,7 @@ func _on_tool_toggled(pressed: bool, tool: ToolController.Tool) -> void:
 		for other: ToolController.Tool in _tool_buttons:
 			if other != tool:
 				_tool_buttons[other].set_pressed_no_signal(false)
-		_room_button.set_pressed_no_signal(false)
-		_close_room_picker()
+		_reset_pickers(null)
 		tool_selected.emit(tool)
 	else:
 		tool_selected.emit(ToolController.Tool.NONE)
@@ -165,20 +180,30 @@ func _on_tool_toggled(pressed: bool, tool: ToolController.Tool) -> void:
 func _on_panel_toggled(pressed: bool, panel: PanelContainer, other_button: Button) -> void:
 	if pressed:
 		other_button.button_pressed = false
-		_room_panel.visible = false
+		for picker_panel: PanelContainer in _pickers.values():
+			picker_panel.visible = false
 	panel.visible = pressed
 
 
-## The Room button opens the picker; the tool only becomes active once a type is chosen.
-func _on_room_toggled(pressed: bool) -> void:
+## A picker button (Build, Room) opens its panel of choices. The tool only
+## becomes active once a choice is made.
+func _on_picker_toggled(pressed: bool, button: Button) -> void:
 	for tool: ToolController.Tool in _tool_buttons:
 		_tool_buttons[tool].set_pressed_no_signal(false)
+	_reset_pickers(button)
+	button.text = _picker_titles[button]
 	tool_selected.emit(ToolController.Tool.NONE)
-	_close_room_picker()
 	if pressed:
 		_requests_button.button_pressed = false
 		_debug_button.button_pressed = false
-		_room_panel.visible = true
+	_pickers[button].visible = pressed
+
+
+## One of a picker's plain choices: it stands for a tool.
+func _on_option_pressed(button: Button, label: String, tool: ToolController.Tool) -> void:
+	_pickers[button].visible = false
+	button.text = "%s: %s" % [_picker_titles[button], label]
+	tool_selected.emit(tool)
 
 
 func _on_room_type_pressed(def: RoomDef) -> void:
@@ -187,10 +212,14 @@ func _on_room_type_pressed(def: RoomDef) -> void:
 	room_tool_selected.emit(def)
 
 
-func _close_room_picker() -> void:
-	_room_panel.visible = false
-	_room_button.text = "Room"
-
+## Closes every picker and unpresses its button, except the one given.
+func _reset_pickers(except: Button) -> void:
+	for button: Button in _pickers:
+		if button == except:
+			continue
+		button.set_pressed_no_signal(false)
+		button.text = _picker_titles[button]
+		_pickers[button].visible = false
 
 func _on_speed_pressed(index: int) -> void:
 	for i in _speed_buttons.size():

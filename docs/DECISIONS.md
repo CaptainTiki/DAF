@@ -31,6 +31,17 @@ Judgment calls made while building, newest milestone first. Each entry says what
 - Rooms can't overlap each other or stockpile tiles, and can't go on the surface.
 - Right-drag with the Room tool removes a room. Its furniture, bench materials and stored goods drop to the floor.
 
+### Structures: stairs and floors
+- The player can dig a room any height, so a floor is never inferred from where layers are. Ground is rock, or a floor a dwarf built. An earlier rule that put a walkway wherever stairs crossed a layer's floor row was removed for this reason.
+- A built floor is a plank platform along the top of an open tile. Dwarves and items stand on it from the tile above; the space under it stays open. It splits a tall room into storeys, bridges a gap, or covers a stairwell.
+- Structures are bits on the tile, so one tile can hold both a stair and a floor.
+- Where a stair passes behind rock that hasn't been dug, the rock is still the floor. Dig it out and there is a hole until a floor is built over it; dwarves can still cross by dipping down the stair and back up.
+- Stairs and floors cost 1 wood per tile (`structure_item`).
+- Removing works on plans and on built structures, and gives the wood back on the spot. It is immediate; dwarves don't do the work. A stair with a dwarf on it, or a floor with a dwarf standing on it, is left alone.
+- The Build button opens a picker (Stairs, Floor, Remove); the Room picker has Remove too. Right-drag with any build or room tool also removes.
+- Stairs are drawn as half planks from each stair tile towards each stair it touches, so runs that meet at a turn join up.
+- Walls and doors are not built yet. A wall would turn open space back into solid; a door has nothing to do until there are threats.
+
 ### Joining rooms
 - A room dragged so that it touches or overlaps a room of the same type becomes one room with it. A new room can bridge two others.
 - The layout is recalculated for the new width. A slot that is still in the layout keeps what it has: built furniture, a bench and its output pile, materials already delivered.
