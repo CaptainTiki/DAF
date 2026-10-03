@@ -8,6 +8,8 @@ extends Resource
 ## For grouping in the room picker.
 @export var category: StringName = &"general"
 @export var color: Color = Color(0.6, 0.5, 0.8)
+## A quarry: dug out bit by bit, only while what its rock yields is short in storage.
+@export var quarry: bool = false
 @export var min_width: int = 3
 ## Open tiles from floor to ceiling.
 @export var min_height: int = 3

@@ -12,6 +12,10 @@ signal dwarf_hired(dwarf: Dwarf)
 const ORDER_INTERVAL: int = 10
 ## How often scaffolding that is no longer needed is looked for, in ticks.
 const SCAFFOLD_INTERVAL: int = 40
+## How many tiles of a quarry are marked at a time.
+const QUARRY_BATCH: int = 3
+## How often quarries and harvests are checked against the stock, in ticks.
+const STOCK_INTERVAL: int = 40
 const ALL_STRUCTURES: int = TileGrid.STRUCTURE_STAIR | TileGrid.STRUCTURE_FLOOR | TileGrid.STRUCTURE_SCAFFOLD
 const NO_ITEM: int = -1
 
@@ -73,7 +77,9 @@ func _init(p_config: SimConfig, world_seed: int) -> void:
 func tick() -> void:
 	tick_count += 1
 	_tick_items()
-	plants.tick(board)
+	plants.tick(self)
+	if tick_count % STOCK_INTERVAL == 0:
+		_tick_quarries()
 	if tick_count % ORDER_INTERVAL == 0:
 		orders.update(self)
 	if tick_count % SCAFFOLD_INTERVAL == 0:
@@ -416,6 +422,7 @@ func complete_dig(tile: Vector2i) -> void:
 		_remove_stockpile_tile(Vector2i(tile.x, tile.y - 1))
 	if _drop_type[material] != NO_ITEM:
 		spawn_item(_drop_type[material], tile)
+	_mark_uncovered_ore(tile)
 	tile_changed.emit(tile.x, tile.y)
 
 
@@ -621,6 +628,56 @@ func _tick_items() -> void:
 			item.settled = true
 			_unsettled.remove_at(i)
 			items_version += 1
+
+
+## Standing order: ore showing in the walls of a freshly dug tile gets marked
+## for mining, so a vein is followed as it is uncovered.
+func _mark_uncovered_ore(tile: Vector2i) -> void:
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			var x: int = tile.x + dx
+			var y: int = tile.y + dy
+			if not grid.is_solid(x, y) or not grid.in_bounds(x, y) or grid.is_dig_marked(x, y):
+				continue
+			if grid.has_flag(x, y, TileGrid.FLAG_ROOM):
+				continue
+			if material_def(grid.material_at(x, y)).auto_mine:
+				_mark_dig(Rect2i(x, y, 1, 1), true, false)
+
+
+## Standing order: a quarry is dug a few tiles at a time while what its rock
+## yields is short in storage. Tiles beside open space go first.
+func _tick_quarries() -> void:
+	for room: Room in rooms.rooms:
+		if not room.def.quarry:
+			continue
+		var marked: int = 0
+		var candidates: Array[Vector2i] = []
+		for y in range(room.rect.position.y, room.rect.end.y):
+			for x in range(room.rect.position.x, room.rect.end.x):
+				if not grid.is_solid(x, y):
+					continue
+				if grid.is_dig_marked(x, y):
+					marked += 1
+				elif _is_short(_drop_type[grid.material_at(x, y)]) and _touches_open(x, y):
+					candidates.append(Vector2i(x, y))
+		for tile: Vector2i in candidates:
+			if marked >= QUARRY_BATCH:
+				break
+			_mark_dig(Rect2i(tile, Vector2i.ONE), true, true)
+			marked += 1
+
+
+## Fewer of this item in storage than the standing order asks for.
+func _is_short(type: int) -> bool:
+	if type == NO_ITEM:
+		return false
+	var target: int = item_def(type).stock_target
+	return target > 0 and storage.totals[type] < target
+
+
+func _touches_open(x: int, y: int) -> bool:
+	return grid.is_open(x - 1, y) or grid.is_open(x + 1, y) or grid.is_open(x, y - 1) or grid.is_open(x, y + 1)
 
 
 ## Sites that need no work are done the moment their materials arrive.

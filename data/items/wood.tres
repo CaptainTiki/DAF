@@ -9,3 +9,4 @@ display_name = "Wood"
 color = Color(0.62, 0.42, 0.22, 1)
 size = 1
 shape = 1
+stock_target = 20

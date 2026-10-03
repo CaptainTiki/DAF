@@ -13,6 +13,9 @@ enum Shape { BALL, LOG, CHAIR, TABLE, BED, SHELF }
 ## How good it is to eat or drink: -1 poor, 0 plain, 1 good. Decides the
 ## mood a dwarf is left in after using it.
 @export_range(-1, 1) var quality: int = 0
+## Standing orders keep at least this many in storage: quarries dig and
+## plants are harvested while the stored count is below it. 0 means always.
+@export var stock_target: int = 0
 ## Waste: never stored. Dwarves carry it up and tip it on the spoil heap.
 @export var dump: bool = false
 ## How the view draws it.

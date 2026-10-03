@@ -64,6 +64,13 @@ Judgment calls made while building, newest milestone first. Each entry says what
 - Everything takes longer: digging three times, crafting and building twice, structures twice. The base now takes an evening to come together.
 - Not done, by choice: dwarves don't dig or expand on their own, and don't ask for permission to. The player sets every room. Standing orders for ore, stone and wood are next.
 
+### Standing orders
+- Ore is mined on sight. When a tile is dug, any ore showing in the eight tiles around it is marked for digging (materials with `auto_mine`), so a vein is followed as it is uncovered. Ore inside a planned room is left to the room.
+- A Quarry is a room type placed in rock that is dug a few tiles at a time (3 marked at once), only while what its rock yields is short in storage, tiles beside open space first. It is never dug all at once.
+- Items can have a stock target (`stock_target`: wood 20, stone 20, mushrooms 12). Quarries dig and plants are harvested only while the stored count is below it; a plant with a harvest nobody wants stands ripe until it is. Items with no target are always harvested.
+- Only stored items count towards the target, not loose ones on the floor.
+- There is no UI for standing orders yet; the targets live in the item data files.
+
 ### Dirt and stone
 - Dirt is waste (`dump` on the item). It is never stored. Dwarves carry it up to a spoil heap on the surface, 7 tiles left of where they arrived, and it is gone. The heap grows as a visible mound.
 - If there is no way up to the heap, dirt stays where it fell and nobody complains.

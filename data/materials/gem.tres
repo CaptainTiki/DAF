@@ -9,4 +9,5 @@ id = &"gem"
 display_name = "Gem"
 color = Color(0.82, 0.28, 0.86, 1)
 dig_ticks = 480
+auto_mine = true
 drop = ExtResource("2_drop")

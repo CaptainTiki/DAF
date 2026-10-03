@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="RoomDef" format=3]
+
+[ext_resource type="Script" path="res://simulizer/defs/room_def.gd" id="1_room"]
+
+[resource]
+script = ExtResource("1_room")
+id = &"quarry"
+display_name = "Quarry"
+category = &"storage"
+color = Color(0.6, 0.6, 0.65, 1)
+quarry = true
+min_width = 2
+min_height = 3

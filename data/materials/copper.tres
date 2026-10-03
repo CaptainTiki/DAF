@@ -9,4 +9,5 @@ id = &"copper"
 display_name = "Copper"
 color = Color(0.86, 0.5, 0.2, 1)
 dig_ticks = 270
+auto_mine = true
 drop = ExtResource("2_drop")

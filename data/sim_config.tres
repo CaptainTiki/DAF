@@ -46,6 +46,7 @@
 [ext_resource type="Resource" path="res://data/items/shelf.tres" id="44_i_shelf"]
 [ext_resource type="Resource" path="res://data/recipes/shelf.tres" id="45_r_shelf"]
 [ext_resource type="Resource" path="res://data/rooms/storeroom.tres" id="46_storeroom"]
+[ext_resource type="Resource" path="res://data/rooms/quarry.tres" id="47_quarry"]
 
 [resource]
 script = ExtResource("1_config")
@@ -53,7 +54,7 @@ ticks_per_second = 20
 materials = Array[ExtResource("2_material")]([ExtResource("4_dirt"), ExtResource("5_stone"), ExtResource("6_copper"), ExtResource("7_iron"), ExtResource("8_silver"), ExtResource("9_gold"), ExtResource("10_gem")])
 items = Array[ExtResource("11_item")]([ExtResource("12_i_dirt"), ExtResource("13_i_stone"), ExtResource("14_i_copper"), ExtResource("15_i_iron"), ExtResource("16_i_silver"), ExtResource("17_i_gold"), ExtResource("18_i_gem"), ExtResource("19_i_wood"), ExtResource("20_i_chair"), ExtResource("21_i_table"), ExtResource("29_i_bed"), ExtResource("34_i_mushroom"), ExtResource("35_i_meal"), ExtResource("36_i_ale"), ExtResource("44_i_shelf")])
 recipes = Array[ExtResource("22_recipe")]([ExtResource("23_r_chair"), ExtResource("24_r_table"), ExtResource("30_r_bed"), ExtResource("37_r_meal"), ExtResource("38_r_ale"), ExtResource("45_r_shelf")])
-rooms = Array[ExtResource("25_room")]([ExtResource("46_storeroom"), ExtResource("26_carpentry"), ExtResource("27_hall"), ExtResource("28_farm"), ExtResource("39_patch"), ExtResource("31_bunks"), ExtResource("40_kitchen"), ExtResource("41_brewery")])
+rooms = Array[ExtResource("25_room")]([ExtResource("46_storeroom"), ExtResource("26_carpentry"), ExtResource("27_hall"), ExtResource("28_farm"), ExtResource("39_patch"), ExtResource("31_bunks"), ExtResource("40_kitchen"), ExtResource("41_brewery"), ExtResource("47_quarry")])
 needs = Array[ExtResource("32_need")]([ExtResource("33_sleep"), ExtResource("42_food"), ExtResource("43_drink")])
 world_gen = ExtResource("3_world")
 starting_item = ExtResource("19_i_wood")

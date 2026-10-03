@@ -90,8 +90,10 @@ func place(sim: Simulation, def: RoomDef, rect: Rect2i) -> Room:
 
 	rooms.append(room)
 	_set_tiles(sim, fitted, room)
-	# Whatever is still rock inside the room gets dug out first.
-	sim.plan_dig(fitted)
+	# Whatever is still rock inside the room gets dug out first. A quarry is
+	# dug bit by bit instead, as stone is needed; see Simulation._tick_quarries.
+	if not def.quarry:
+		sim.plan_dig(fitted)
 	_lay_out(sim, room, old_slots)
 	# Whatever no longer has a place in the new layout drops to the floor.
 	for slot: RoomSlot in old_slots:

@@ -10,6 +10,7 @@ extends RefCounted
 # Material indices.
 const DIRT: int = 0
 const STONE: int = 1
+const IRON: int = 2
 
 # Item type indices.
 const DIRT_BALL: int = 0
@@ -21,6 +22,7 @@ const BED: int = 5
 const MUSHROOM: int = 6
 const MEAL: int = 7
 const SHELF: int = 8
+const IRON_ORE: int = 9
 
 # Room type indices in config.rooms.
 const CARPENTRY: int = 0
@@ -28,6 +30,7 @@ const HALL: int = 1
 const BUNK_ROOM: int = 2
 const KITCHEN: int = 3
 const STOREROOM: int = 4
+const QUARRY: int = 5
 
 # Need indices.
 const SLEEP: int = 0
@@ -45,6 +48,7 @@ static func make_config() -> SimConfig:
 	var meal := _item(&"meal", "Meal", 1, ItemDef.Shape.BALL)
 	meal.quality = 1
 	var shelf := _item(&"shelf", "Shelf", 2, ItemDef.Shape.SHELF)
+	var iron_ore := _item(&"iron_ore", "Iron ore", 1, ItemDef.Shape.BALL)
 
 	var dirt := MaterialDef.new()
 	dirt.id = &"dirt"
@@ -56,6 +60,13 @@ static func make_config() -> SimConfig:
 	stone.display_name = "Stone"
 	stone.dig_ticks = 8
 	stone.drop = stone_ball
+
+	var iron := MaterialDef.new()
+	iron.id = &"iron"
+	iron.display_name = "Iron"
+	iron.dig_ticks = 8
+	iron.drop = iron_ore
+	iron.auto_mine = true
 
 	var band := DepthBand.new()
 	band.base_material = dirt
@@ -70,10 +81,10 @@ static func make_config() -> SimConfig:
 	world.tree_count = 0
 
 	var config := SimConfig.new()
-	config.materials = [dirt, stone]
-	config.items = [dirt_ball, stone_ball, wood, chair, table, bed, mushroom, meal, shelf]
+	config.materials = [dirt, stone, iron]
+	config.items = [dirt_ball, stone_ball, wood, chair, table, bed, mushroom, meal, shelf, iron_ore]
 	config.recipes = [_recipe(wood, 1, chair, 10), _recipe(wood, 2, table, 10), _recipe(wood, 2, bed, 10), _recipe(mushroom, 2, meal, 10, &"cooking"), _recipe(wood, 1, shelf, 10)]
-	config.rooms = [make_carpentry(wood), make_hall(chair, table), make_bunk_room(bed), make_kitchen(wood), make_storeroom(shelf)]
+	config.rooms = [make_carpentry(wood), make_hall(chair, table), make_bunk_room(bed), make_kitchen(wood), make_storeroom(shelf), make_quarry()]
 	config.needs = [make_sleep_need(), make_food_need(meal, mushroom)]
 	config.world_gen = world
 	config.starting_item = null
@@ -234,6 +245,16 @@ static func make_storeroom(shelf: ItemDef) -> RoomDef:
 	def.min_width = 2
 	def.pattern_width = 1
 	def.slots = slots
+	return def
+
+
+## A quarry: rock dug a few tiles at a time while its stone is short.
+static func make_quarry() -> RoomDef:
+	var def := RoomDef.new()
+	def.id = &"quarry"
+	def.display_name = "Quarry"
+	def.quarry = true
+	def.min_width = 2
 	return def
 
 

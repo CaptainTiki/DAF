@@ -34,17 +34,38 @@ func remove(plant: Plant, board: JobBoard) -> void:
 	version += 1
 
 
-func tick(board: JobBoard) -> void:
+## Grows every plant a tick. A full-grown plant offers a harvest job while its
+## yield is wanted: always, or only while storage is short of it if the yield
+## item has a stock target. A job no longer wanted is withdrawn until it is.
+func tick(sim: Simulation) -> void:
+	var board: JobBoard = sim.board
 	for plant: Plant in plants:
 		if plant.is_grown():
+			if sim.tick_count % Simulation.STOCK_INTERVAL != 0:
+				continue
+			var wanted: bool = _is_wanted(sim, plant)
+			if wanted and plant.job == null:
+				plant.job = board.add_harvest(plant)
+			elif not wanted and plant.job != null and plant.job.claimed_by == Job.UNCLAIMED:
+				board.remove(plant.job)
+				plant.job = null
 			continue
 		var step_before: int = _step(plant)
 		plant.growth += 1
 		if plant.is_grown():
-			plant.job = board.add_harvest(plant)
+			if _is_wanted(sim, plant):
+				plant.job = board.add_harvest(plant)
 			version += 1
 		elif _step(plant) != step_before:
 			version += 1
+
+
+func _is_wanted(sim: Simulation, plant: Plant) -> bool:
+	var type: int = sim.item_type(plant.def.yield_item)
+	if type == Simulation.NO_ITEM:
+		return false
+	var target: int = sim.item_def(type).stock_target
+	return target == 0 or sim.storage.totals[type] < target
 
 
 ## Cuts the plant back to bare. The caller drops the yield.
