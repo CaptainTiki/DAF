@@ -19,6 +19,9 @@ signal window_mode_requested(mode: WindowController.Mode)
 signal layer_step_requested(direction: int)
 ## The player changed how many of an item type to keep in store.
 signal stock_target_changed(type: int, target: int)
+signal save_requested
+signal load_requested
+signal new_game_requested
 
 @onready var _bar: HBoxContainer = $Bar
 @onready var _view_column: VBoxContainer = $ViewColumn
@@ -54,6 +57,9 @@ signal stock_target_changed(type: int, target: int)
 @onready var _hire_button: Button = $DebugPanel/Row/HireButton
 @onready var _dwarf_count: Label = $DebugPanel/Row/DwarfCount
 @onready var _reveal_check: CheckButton = $DebugPanel/Row/RevealCheck
+@onready var _save_button: Button = $DebugPanel/Row/SaveButton
+@onready var _load_button: Button = $DebugPanel/Row/LoadButton
+@onready var _new_button: Button = $DebugPanel/Row/NewButton
 
 const SPEEDS: Array[float] = [1.0, 2.0, 3.0, 4.0, 16.0]
 const BAR_MARGIN: float = 4.0
@@ -104,6 +110,9 @@ func _ready() -> void:
 	_tray_button.pressed.connect(func() -> void: window_mode_requested.emit(WindowController.Mode.TRAY))
 	_hire_button.pressed.connect(func() -> void: hire_requested.emit())
 	_reveal_check.toggled.connect(func(enabled: bool) -> void: reveal_toggled.emit(enabled))
+	_save_button.pressed.connect(func() -> void: save_requested.emit())
+	_load_button.pressed.connect(func() -> void: load_requested.emit())
+	_new_button.pressed.connect(func() -> void: new_game_requested.emit())
 	_room_overlay_button.toggled.connect(func(enabled: bool) -> void: room_overlay_toggled.emit(enabled))
 	_planned_button.toggled.connect(func(enabled: bool) -> void: planned_furniture_toggled.emit(enabled))
 	for i in _speed_buttons.size():

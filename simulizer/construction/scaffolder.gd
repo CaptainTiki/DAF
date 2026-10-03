@@ -11,7 +11,7 @@ extends RefCounted
 
 ## Tiles of scaffolding this class planned, built or not. Player-built
 ## scaffolding (none yet) would not be in here and would be left alone.
-var _own_tiles: Dictionary[Vector2i, bool] = {}
+var own_tiles: Dictionary[Vector2i, bool] = {}
 
 
 ## Plans one tower for a marked tile that can't be reached, if there is one
@@ -34,7 +34,7 @@ func plan(sim: Simulation, flood_map: FloodMap) -> bool:
 			# Already on its way up; look at the next tile.
 			continue
 		for tile: Vector2i in missing:
-			_own_tiles[tile] = true
+			own_tiles[tile] = true
 		sim.mark_scaffolds(missing, true)
 		return true
 	return false
@@ -43,19 +43,19 @@ func plan(sim: Simulation, flood_map: FloodMap) -> bool:
 ## Marks towers nobody needs any more to be taken down, and cancels ones that
 ## were planned but are no longer wanted.
 func clean_up(sim: Simulation) -> void:
-	if _own_tiles.is_empty():
+	if own_tiles.is_empty():
 		return
 	var grid: TileGrid = sim.grid
 	# Topmost and lowest row of our scaffolding per column.
 	var top_row: Dictionary[int, int] = {}
 	var bottom_row: Dictionary[int, int] = {}
-	for tile: Vector2i in _own_tiles.keys():
+	for tile: Vector2i in own_tiles.keys():
 		if not grid.has_scaffold(tile.x, tile.y) and not grid.is_build_marked(tile.x, tile.y):
-			_own_tiles.erase(tile)
+			own_tiles.erase(tile)
 			continue
 		top_row[tile.x] = mini(top_row.get(tile.x, tile.y), tile.y)
 		bottom_row[tile.x] = maxi(bottom_row.get(tile.x, tile.y), tile.y)
-	for tile: Vector2i in _own_tiles:
+	for tile: Vector2i in own_tiles:
 		if _is_column_needed(grid, tile.x, top_row[tile.x], bottom_row[tile.x]):
 			continue
 		if not grid.is_remove_marked(tile.x, tile.y):

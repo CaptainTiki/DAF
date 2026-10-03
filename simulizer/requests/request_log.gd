@@ -29,6 +29,12 @@ func post(key: StringName, dwarf_name: String, message: String, tick: int, refre
 	changed.emit()
 
 
+func restore(entry: RequestEntry) -> void:
+	_by_key[entry.key] = entry
+	entries.append(entry)
+	changed.emit()
+
+
 func clear() -> void:
 	entries.clear()
 	_by_key.clear()

@@ -105,6 +105,63 @@ func place(sim: Simulation, def: RoomDef, rect: Rect2i) -> Room:
 	changed.emit()
 	return room
 
+## Puts a room back from a save, slots as they were. Piles and plants are
+## looked up by index in the lists SaveGame has already restored.
+func restore_room(sim: Simulation, data: Dictionary, piles: Array[Pile], plants: Array[Plant]) -> Room:
+	var room := Room.new()
+	room.id = data["id"]
+	_next_id = maxi(_next_id, room.id + 1)
+	room.def = _room_def(sim, data["def"])
+	room.rect = data["rect"]
+	room.feet_row = data["feet_row"]
+	room.anchor_x = data["anchor_x"]
+	rooms.append(room)
+	_set_tiles(sim, room.rect, room)
+	for slot_data: Dictionary in data["slots"]:
+		var slot := RoomSlot.new()
+		slot.room = room
+		slot.def = room.def.slots[slot_data["def"]]
+		slot.tile = slot_data["tile"]
+		slot.unit = slot_data["unit"]
+		slot.built = slot_data["built"]
+		slot.owner = slot_data["owner"]
+		if slot_data["pile"] >= 0:
+			slot.pile = piles[slot_data["pile"]]
+		if slot_data["plant"] >= 0:
+			slot.plant = plants[slot_data["plant"]]
+		if slot_data.has("site"):
+			slot.site = sim.restore_site(slot_data["site"], slot)
+		room.slots.append(slot)
+		if slot_data.has("station"):
+			var station_data: Dictionary = slot_data["station"]
+			var station := Station.new()
+			station.slot = slot
+			station.tile = station_data["tile"]
+			station.station_type = slot.def.station_type
+			station.worker_id = station_data["worker_id"]
+			if station_data["recipe"] >= 0:
+				station.recipe = sim.config.recipes[station_data["recipe"]]
+				var request: Dictionary = station_data["request"]
+				station.request = sim.logistics.add(station.tile, request["type"], request["wanted"], request["purpose"])
+				station.request.delivered = request["delivered"]
+			slot.station = station
+			stations.append(station)
+	for slot: RoomSlot in room.slots:
+		if slot.station != null:
+			slot.station.output = _output_pile_for(slot)
+	_provider_counts = null
+	changed.emit()
+	return room
+
+
+func _room_def(sim: Simulation, id: StringName) -> RoomDef:
+	for def: RoomDef in sim.config.rooms:
+		if def.id == id:
+			return def
+	push_error("Unknown room type in save: %s" % id)
+	return sim.config.rooms[0]
+
+
 ## Takes a room away. Furniture, materials and stored goods are left on the floor.
 func remove(sim: Simulation, room: Room) -> void:
 	if room.removed:

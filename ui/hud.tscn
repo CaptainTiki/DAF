@@ -262,6 +262,21 @@ layout_mode = 2
 tooltip_text = "Show all rock, not just what borders open space"
 text = "Reveal map"
 
+[node name="SaveButton" type="Button" parent="DebugPanel/Row"]
+layout_mode = 2
+tooltip_text = "The game also saves itself every couple of minutes and on closing"
+text = "Save"
+
+[node name="LoadButton" type="Button" parent="DebugPanel/Row"]
+layout_mode = 2
+tooltip_text = "Go back to the last save"
+text = "Load"
+
+[node name="NewButton" type="Button" parent="DebugPanel/Row"]
+layout_mode = 2
+tooltip_text = "Throw the save away and start a fresh world"
+text = "New"
+
 [node name="ViewColumn" type="VBoxContainer" parent="."]
 layout_mode = 1
 anchors_preset = 11

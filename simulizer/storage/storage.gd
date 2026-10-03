@@ -61,6 +61,21 @@ func add_pile(kind: Pile.Kind, tile: Vector2i, capacity: int) -> Pile:
 	return pile
 
 
+## Puts a pile back from a save, contents and all. Nothing is reserved.
+func restore_pile(kind: Pile.Kind, tile: Vector2i, capacity: int, only_type: int, counts: Dictionary) -> Pile:
+	var pile: Pile = add_pile(kind, tile, capacity)
+	pile.only_type = only_type
+	for type: int in counts:
+		var count: int = counts[type]
+		pile.counts[type] = count
+		pile.units_used += count * _sizes[type]
+		totals[type] += count
+	if kind == Pile.Kind.STOCKPILE:
+		_stock_piles[tile] = pile
+	changed.emit()
+	return pile
+
+
 ## Takes a pile out of storage. Its counts are left intact for spilling.
 func remove_pile(pile: Pile) -> void:
 	if pile.removed:

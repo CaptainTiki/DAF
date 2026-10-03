@@ -4,6 +4,16 @@ Judgment calls made while building, newest milestone first. Each entry says what
 
 ## Milestone 02: Order chain
 
+### Save and load
+- One save, `user://save.dat`, written with `store_var`. Saved every two minutes, on closing the window, and from the Debug panel. The game loads it on start if it is there; Load reloads the scene; New deletes it first.
+- Only what lasts is saved: the grid, items, piles, plants, sites with their requests, rooms and slots, dwarves (needs, mood quality, tempo, name) and the requests log. Work in progress is not: on loading every dwarf starts idle where they stood, drops what they carried at their feet, and jobs are rebuilt from the marks, sites, stations and plants. Simpler than saving claims and paths, and a half-second of hesitation after loading is invisible.
+- The save holds the RNG state, so a loaded game goes on as the unsaved one would have.
+- A save from another version is refused (`SaveGame.VERSION`) and a new world started. Migration can come once there are players.
+
+### Watching the work
+- Tiles shrink in height as they are dug and throw chips, so slow digging reads as work. A small cube above a dwarf's head is green in a good mood, red in a bad one; the bar sums moods.
+- The Orders panel is a spin box per item type with a stock target, feeding `Simulation.stock_targets`.
+
 ### Items and storage
 - A ball is now an item with a type (`ItemDef`): dirt, ores, wood, chair, table. Each material names the item it drops.
 - Each item type has a size in storage units. A pile holds 10 units: ten balls, three chairs or two tables.

@@ -63,16 +63,19 @@ var _name_order: PackedInt32Array
 var _drop_type: PackedInt32Array
 
 
-func _init(p_config: SimConfig, world_seed: int) -> void:
+## With `generate` off the world is left empty, for SaveGame to fill in.
+func _init(p_config: SimConfig, world_seed: int, generate: bool = true) -> void:
 	config = p_config
 	rng.seed = world_seed
-	grid = WorldGenerator.generate(config.world_gen, config.materials, rng)
 	storage = Storage.new(config.items, config.pile_capacity)
 	kind_served.resize(Job.KIND_COUNT)
 	for item: ItemDef in config.items:
 		stock_targets.append(item.stock_target)
 	for material: MaterialDef in config.materials:
 		_drop_type.append(item_type(material.drop))
+	if not generate:
+		return
+	grid = WorldGenerator.generate(config.world_gen, config.materials, rng)
 	_name_order = _shuffled_indices(config.dwarf_names.size())
 	_plant_trees()
 	_place_supplies()
@@ -494,6 +497,106 @@ func remove_item(item: Item) -> void:
 		board.remove(job)
 	items.erase(item.id)
 	items_version += 1
+
+
+# --- Used by SaveGame ---
+
+func structure_sites() -> Array[BuildSite]:
+	var found: Array[BuildSite] = []
+	found.assign(_structure_sites.values())
+	found.append_array(_removal_sites.values())
+	return found
+
+
+func structure_items() -> Dictionary[Vector3i, int]:
+	return _structure_items
+
+
+func name_order() -> PackedInt32Array:
+	return _name_order
+
+
+func next_item_id() -> int:
+	return _next_item_id
+
+
+## Puts the bare world back from a save: the grid and the counters. Everything
+## that lives on it is restored piece by piece by SaveGame afterwards.
+func restore(data: Dictionary) -> void:
+	tick_count = data["tick"]
+	rng.state = data["rng_state"]
+	dumped = data["dumped"]
+	kind_served = data["kind_served"]
+	stock_targets = data["stock_targets"]
+	_name_order = data["name_order"]
+	_next_item_id = data["next_item_id"]
+	grid = TileGrid.new(data["grid_width"], data["grid_height"], data["first_layer_row"], data["layer_height"])
+	grid.import_arrays(data["grid"])
+	var structure_items_data: Dictionary = data["structure_items"]
+	for key: Vector3i in structure_items_data:
+		_structure_items[key] = structure_items_data[key]
+	for y in grid.height:
+		for x in grid.width:
+			if grid.is_stockpile(x, y):
+				storage.add_tile(Vector2i(x, y))
+
+
+## Puts a pile back. The dump is recognised by its kind.
+func restore_pile(data: Dictionary) -> Pile:
+	var pile: Pile = storage.restore_pile(data["kind"], data["tile"], data["capacity"], data["only_type"], data["counts"])
+	if pile.kind == Pile.Kind.DUMP:
+		dump_pile = pile
+	return pile
+
+
+## Puts a loose item back on the floor. Whatever was carried is dropped.
+func restore_item(data: Dictionary) -> Item:
+	return spawn_item(data["type"], data["pos"])
+
+
+## Puts a build site back, for a structure or (with `slot`) a room slot.
+func restore_site(data: Dictionary, slot: RoomSlot) -> BuildSite:
+	var request: Dictionary = data.get("request", {})
+	var site: BuildSite = add_site(data["tile"], request.get("type", NO_ITEM), request.get("wanted", 0), data["work_ticks"], request.get("purpose", ""), slot)
+	if site.request != null:
+		site.request.delivered = request["delivered"]
+	site.structure = data["structure"]
+	site.removing = data["removing"]
+	if slot == null:
+		var key := Vector3i(site.tile.x, site.tile.y, site.structure)
+		if site.removing:
+			_removal_sites[key] = site
+		else:
+			_structure_sites[key] = site
+	return site
+
+
+## Dig marks in the grid become dig jobs again.
+func restore_dig_jobs() -> void:
+	for y in grid.height:
+		for x in grid.width:
+			if grid.is_dig_marked(x, y) and grid.is_solid(x, y):
+				board.add_dig(Vector2i(x, y))
+
+
+## Puts a dwarf back where they stood, idle: whatever they were doing, they
+## pick up afresh from the job board.
+func restore_dwarf(data: Dictionary) -> Dwarf:
+	var dwarf := Dwarf.new()
+	dwarf.id = data["id"]
+	dwarf.display_name = data["name"]
+	dwarf.experience = data["experience"]
+	dwarf.beard_length = data["beard"]
+	dwarf.think_ticks = data["think_ticks"]
+	dwarf.pace = data["pace"]
+	dwarf.pos = data["pos"]
+	dwarf.from_pos = dwarf.pos
+	dwarf.facing = data["facing"]
+	dwarf.needs = data["needs"]
+	dwarf.need_quality = data["need_quality"]
+	dwarves.append(dwarf)
+	dwarf_hired.emit(dwarf)
+	return dwarf
 
 
 # --- Internals ---

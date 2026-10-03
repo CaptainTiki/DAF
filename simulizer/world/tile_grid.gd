@@ -49,6 +49,17 @@ func _init(p_width: int, p_height: int, p_first_layer_row: int, p_layer_height: 
 	_structures.resize(count)
 
 
+## The raw per-tile arrays, for saving.
+func export_arrays() -> Dictionary:
+	return {"materials": _materials, "flags": _flags, "structures": _structures}
+
+
+func import_arrays(data: Dictionary) -> void:
+	_materials = data["materials"]
+	_flags = data["flags"]
+	_structures = data["structures"]
+
+
 func in_bounds(x: int, y: int) -> bool:
 	return x >= 0 and y >= 0 and x < width and y < height
 
