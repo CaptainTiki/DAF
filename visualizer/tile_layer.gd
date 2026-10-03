@@ -6,6 +6,8 @@ extends MultiMeshInstance3D
 const UNKNOWN_COLOR := Color(0.085, 0.08, 0.09)
 const GRASS_COLOR := Color(0.33, 0.55, 0.24)
 const BACK_WALL_SHADE: float = 0.36
+## How much of a tile is left just before it gives way.
+const MIN_DUG_HEIGHT: float = 0.12
 const HIDDEN := Transform3D(Basis(Vector3.ZERO, Vector3.ZERO, Vector3.ZERO), Vector3.ZERO)
 
 ## When off, rock is only shown where it borders open space.
@@ -44,6 +46,17 @@ func refresh_around(x: int, y: int) -> void:
 		for nx in range(x - 1, x + 2):
 			if _grid.in_bounds(nx, ny):
 				refresh_tile(nx, ny)
+
+
+## Shows a tile being dug: it shrinks down towards the floor of its cell as
+## the work goes on, so digging reads as something happening even when it is
+## slow. Call refresh_tile to put it back.
+func show_dig_progress(x: int, y: int, fraction: float) -> void:
+	var index: int = y * _grid.width + x
+	var height: float = lerpf(1.0, MIN_DUG_HEIGHT, clampf(fraction, 0.0, 1.0))
+	var centre: Vector3 = ViewSpace.tile_center(x, y, ViewSpace.LANE_SOLID)
+	centre.y -= (1.0 - height) * 0.5
+	multimesh.set_instance_transform(index, Transform3D(Basis.from_scale(Vector3(1.0, height, 1.0)), centre))
 
 
 func refresh_tile(x: int, y: int) -> void:

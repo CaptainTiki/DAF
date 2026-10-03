@@ -62,6 +62,7 @@ Judgment calls made while building, newest milestone first. Each entry says what
 - Storeroom: a room type where every floor tile is a storage spot straight away, with two shelves above it that the carpenter makes (1 wood each). A built shelf is one more storage spot, one and two tiles up, within reach from the floor beside it. The Stockpile tool stays for marking bare floor by hand.
 - Stairs: a mostly vertical drag makes a zig-zag stairwell two columns wide, as deep as the drag. A diagonal drag still makes a straight flight.
 - Everything takes longer: digging three times, crafting and building twice, structures twice. The base now takes an evening to come together.
+- To keep slow digging readable, a tile being dug shrinks towards the floor of its cell as the work goes on, until it gives way and the ball drops.
 - Not done, by choice: dwarves don't dig or expand on their own, and don't ask for permission to. The player sets every room. Standing orders for ore, stone and wood are next.
 
 ### Standing orders

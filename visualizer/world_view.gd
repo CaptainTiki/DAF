@@ -18,6 +18,8 @@ var _sim: Simulation
 ## One view per dwarf, indexed by dwarf id. Views are kept and reused, never freed.
 var _dwarf_views: Array[DwarfView] = []
 var _selection_material: StandardMaterial3D
+## Tiles drawn shrunk last frame because someone was digging them.
+var _digging: Dictionary[Vector2i, bool] = {}
 
 
 func _ready() -> void:
@@ -46,6 +48,25 @@ func refresh(alpha: float) -> void:
 	_furniture.refresh()
 	for view: DwarfView in _dwarf_views:
 		view.refresh(_sim, alpha)
+	_show_digging()
+
+
+## Tiles being dug shrink as the work goes on. Any tile that was shrinking
+## last frame but isn't being worked on now is drawn whole again.
+func _show_digging() -> void:
+	var now: Dictionary[Vector2i, bool] = {}
+	for dwarf: Dwarf in _sim.dwarves:
+		if dwarf.activity != Dwarf.Activity.WORK or dwarf.job == null or dwarf.job.kind != Job.Kind.DIG:
+			continue
+		var tile: Vector2i = dwarf.work_tile
+		if not _sim.grid.is_solid(tile.x, tile.y):
+			continue
+		now[tile] = true
+		_tiles.show_dig_progress(tile.x, tile.y, dwarf.work_fraction())
+	for tile: Vector2i in _digging:
+		if not now.has(tile) and _sim.grid.in_bounds(tile.x, tile.y):
+			_tiles.refresh_tile(tile.x, tile.y)
+	_digging = now
 
 
 func set_reveal_all(enabled: bool) -> void:
