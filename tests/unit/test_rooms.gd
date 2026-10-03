@@ -126,6 +126,29 @@ func test_dwarves_dig_out_a_planned_room_and_furnish_it() -> void:
 	assert_eq(_built_count(hall), 6)
 
 
+func test_planned_room_with_no_way_in_waits_until_a_tunnel_is_marked() -> void:
+	# A hall planned in rock two columns clear of the carved strip. Nobody can
+	# reach it, so nothing happens until the dig tool marks the gap.
+	var config := SimFactory.make_config()
+	config.world_gen.width = 40
+	_sim = SimFactory.make_sim(config)
+	SimFactory.carve(_sim, Rect2i(1, 4, 22, 3))
+	SimFactory.place_dwarf(_sim.hire_dwarf(), Vector2i(10, 6))
+	var hall: Room = _sim.place_room(_sim.config.rooms[SimFactory.HALL], Rect2i(25, 6, 5, 1))
+	assert_not_null(hall)
+	SimFactory.run(_sim, 1500)
+	for y in range(4, 7):
+		for x in range(25, 30):
+			assert_true(_sim.grid.is_solid(x, y), "tile %d,%d untouched" % [x, y])
+
+	# Mark the two tiles of rock between: now it is reachable and gets dug.
+	_sim.mark_dig(Rect2i(23, 4, 2, 3), true)
+	SimFactory.run(_sim, 5000)
+	for y in range(4, 7):
+		for x in range(25, 30):
+			assert_true(_sim.grid.is_open(x, y), "tile %d,%d dug" % [x, y])
+
+
 # --- Storerooms ---
 
 func test_storeroom_floor_is_storage_at_once_and_shelves_once_built() -> void:
