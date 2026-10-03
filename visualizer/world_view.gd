@@ -11,6 +11,7 @@ extends Node3D
 @onready var _furniture: FurnitureLayer = $Furniture
 @onready var _dwarf_root: Node3D = $Dwarves
 @onready var _structures: StructureLayer = $Structures
+@onready var _chips: ChipLayer = $Chips
 @onready var _selection: MeshInstance3D = $Selection
 @onready var _tile_selection: MultiMeshInstance3D = $TileSelection
 
@@ -43,18 +44,19 @@ func bind(sim: Simulation) -> void:
 
 ## Call once per frame after the sim has ticked. alpha is the fraction of the
 ## way into the next tick, for smooth movement between ticks.
-func refresh(alpha: float) -> void:
+func refresh(alpha: float, delta: float) -> void:
 	_items.refresh(alpha)
 	_furniture.refresh()
 	for view: DwarfView in _dwarf_views:
 		view.refresh(_sim, alpha)
-	_show_digging()
+	_show_digging(delta)
 
 
 ## Tiles being dug shrink as the work goes on. Any tile that was shrinking
 ## last frame but isn't being worked on now is drawn whole again.
-func _show_digging() -> void:
+func _show_digging(delta: float) -> void:
 	var now: Dictionary[Vector2i, bool] = {}
+	var sources: Array[Array] = []
 	for dwarf: Dwarf in _sim.dwarves:
 		if dwarf.activity != Dwarf.Activity.WORK or dwarf.job == null or dwarf.job.kind != Job.Kind.DIG:
 			continue
@@ -63,6 +65,9 @@ func _show_digging() -> void:
 			continue
 		now[tile] = true
 		_tiles.show_dig_progress(tile.x, tile.y, dwarf.work_fraction())
+		var color: Color = _sim.material_def(_sim.grid.material_at(tile.x, tile.y)).color
+		sources.append([ViewSpace.tile_center(tile.x, tile.y, ViewSpace.LANE_SOLID), color])
+	_chips.refresh(delta, sources)
 	for tile: Vector2i in _digging:
 		if not now.has(tile) and _sim.grid.in_bounds(tile.x, tile.y):
 			_tiles.refresh_tile(tile.x, tile.y)

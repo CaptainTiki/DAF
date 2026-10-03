@@ -46,7 +46,7 @@ func test_ore_inside_a_planned_room_is_left_to_the_room() -> void:
 # --- Quarry ---
 
 func test_quarry_is_dug_only_while_stone_is_short() -> void:
-	_sim.config.items[SimFactory.STONE_BALL].stock_target = 4
+	_sim.set_stock_target(SimFactory.STONE_BALL, 4)
 	for y in range(4, 7):
 		for x in range(15, 21):
 			_rock(x, y, SimFactory.STONE)
@@ -88,7 +88,7 @@ func test_plants_are_only_harvested_while_their_yield_is_short() -> void:
 	shrub.harvest_ticks = 5
 	shrub.yield_item = _sim.config.items[SimFactory.WOOD]
 	shrub.yield_count = 1
-	_sim.config.items[SimFactory.WOOD].stock_target = 2
+	_sim.set_stock_target(SimFactory.WOOD, 2)
 	_sim.plants.add(shrub, Vector2i(13, 6), 49)
 	_sim.mark_stockpile(Rect2i(9, 6, 2, 1), true)
 	SimFactory.run(_sim, 400)

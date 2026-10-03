@@ -64,8 +64,7 @@ func _is_wanted(sim: Simulation, plant: Plant) -> bool:
 	var type: int = sim.item_type(plant.def.yield_item)
 	if type == Simulation.NO_ITEM:
 		return false
-	var target: int = sim.item_def(type).stock_target
-	return target == 0 or sim.storage.totals[type] < target
+	return sim.stock_targets[type] == 0 or sim.is_short(type)
 
 
 ## Cuts the plant back to bare. The caller drops the yield.

@@ -17,6 +17,8 @@ signal room_overlay_toggled(enabled: bool)
 signal planned_furniture_toggled(enabled: bool)
 signal window_mode_requested(mode: WindowController.Mode)
 signal layer_step_requested(direction: int)
+## The player changed how many of an item type to keep in store.
+signal stock_target_changed(type: int, target: int)
 
 @onready var _bar: HBoxContainer = $Bar
 @onready var _view_column: VBoxContainer = $ViewColumn
@@ -30,6 +32,10 @@ signal layer_step_requested(direction: int)
 @onready var _room_panel: PanelContainer = $RoomPanel
 @onready var _room_row: HBoxContainer = $RoomPanel/Row
 @onready var _requests_button: Button = $Bar/RequestsButton
+@onready var _orders_button: Button = $Bar/OrdersButton
+@onready var _orders_panel: PanelContainer = $OrdersPanel
+@onready var _orders_grid: GridContainer = $OrdersPanel/Rows/Grid
+@onready var _mood_label: Label = $Bar/Mood
 @onready var _debug_button: Button = $Bar/DebugButton
 @onready var _totals: Label = $Bar/Totals
 @onready var _layer_up: Button = $Bar/LayerUpButton
@@ -60,6 +66,8 @@ const ICON_BUTTON_HEIGHT: float = 34.0
 
 var _sim: Simulation
 var _tool_buttons: Dictionary[ToolController.Tool, Button] = {}
+## Plain panels and the buttons that open them.
+var _panels: Dictionary[Button, PanelContainer] = {}
 ## Buttons that open a picker panel, and the panel each one opens.
 var _pickers: Dictionary[Button, PanelContainer] = {}
 ## What each picker button says when nothing is chosen.
@@ -85,8 +93,9 @@ func _ready() -> void:
 	$BuildPanel/Row/StairsOption.pressed.connect(_on_option_pressed.bind(_build_button, "Stairs", ToolController.Tool.STAIRS))
 	$BuildPanel/Row/FloorOption.pressed.connect(_on_option_pressed.bind(_build_button, "Floor", ToolController.Tool.FLOOR))
 	$BuildPanel/Row/RemoveOption.pressed.connect(_on_option_pressed.bind(_build_button, "Remove", ToolController.Tool.REMOVE_STRUCTURE))
-	_requests_button.toggled.connect(_on_panel_toggled.bind(_requests_panel, _debug_button))
-	_debug_button.toggled.connect(_on_panel_toggled.bind(_debug_panel, _requests_button))
+	_panels = {_requests_button: _requests_panel, _orders_button: _orders_panel, _debug_button: _debug_panel}
+	for button: Button in _panels:
+		button.toggled.connect(_on_panel_toggled.bind(button))
 	_layer_up.pressed.connect(func() -> void: layer_step_requested.emit(-1))
 	_layer_down.pressed.connect(func() -> void: layer_step_requested.emit(1))
 	_strip_button.pressed.connect(func() -> void: window_mode_requested.emit(WindowController.Mode.STRIP))
@@ -122,9 +131,43 @@ func bind(sim: Simulation) -> void:
 	remove.tooltip_text = "Drag over rooms to take them away. Furniture and goods are left on the floor."
 	remove.pressed.connect(_on_option_pressed.bind(_room_button, "Remove", ToolController.Tool.REMOVE_ROOM))
 	_room_row.add_child(remove)
+	for type in sim.config.items.size():
+		if sim.stock_targets[type] <= 0:
+			continue
+		var name_label := Label.new()
+		name_label.text = sim.item_def(type).display_name
+		_orders_grid.add_child(name_label)
+		var spin := SpinBox.new()
+		spin.min_value = 0
+		spin.max_value = 200
+		spin.step = 5
+		spin.value = sim.stock_targets[type]
+		spin.value_changed.connect(func(value: float) -> void: stock_target_changed.emit(type, int(value)))
+		_orders_grid.add_child(spin)
 	_refresh_totals()
 	_refresh_requests()
 	_refresh_dwarf_count()
+	refresh_colony()
+
+
+## Updates the mood readout. Called now and then, not every frame.
+func refresh_colony() -> void:
+	var good: int = 0
+	var bad: int = 0
+	for dwarf: Dwarf in _sim.dwarves:
+		if dwarf.mood == Dwarf.Mood.GOOD:
+			good += 1
+		elif dwarf.mood == Dwarf.Mood.BAD:
+			bad += 1
+	var total: int = _sim.dwarves.size()
+	if total == 0:
+		_mood_label.text = "Mood: -"
+	elif bad == 0 and good == total:
+		_mood_label.text = "Mood: all good"
+	elif bad == 0 and good == 0:
+		_mood_label.text = "Mood: ok"
+	else:
+		_mood_label.text = "Mood: %d good, %d bad" % [good, bad]
 
 
 func set_layer(layer: int) -> void:
@@ -142,6 +185,7 @@ func set_window_mode(mode: WindowController.Mode) -> void:
 	_corner_button.disabled = mode == WindowController.Mode.CORNER
 	# The corner window is too narrow for the readout.
 	_totals.visible = mode != WindowController.Mode.CORNER
+	_mood_label.visible = mode != WindowController.Mode.CORNER
 
 
 ## Arranges the HUD for the window. In the strip and corner the toolbar runs
@@ -155,6 +199,7 @@ func _dock(at_top: bool) -> void:
 	_pin(_build_panel, at_top, panel_gap, SMALL_PANEL_HEIGHT)
 	_pin(_debug_panel, at_top, panel_gap, SMALL_PANEL_HEIGHT)
 	_pin(_requests_panel, at_top, panel_gap, REQUESTS_PANEL_HEIGHT)
+	_pin(_orders_panel, at_top, panel_gap, REQUESTS_PANEL_HEIGHT)
 	for column: VBoxContainer in [_view_column, _window_column]:
 		column.anchor_bottom = 0.0 if at_top else 1.0
 		column.offset_top = COLUMN_MARGIN
@@ -185,12 +230,15 @@ func _on_tool_toggled(pressed: bool, tool: ToolController.Tool) -> void:
 		tool_selected.emit(ToolController.Tool.NONE)
 
 
-func _on_panel_toggled(pressed: bool, panel: PanelContainer, other_button: Button) -> void:
+## The plain panels (requests, orders, debug) open one at a time.
+func _on_panel_toggled(pressed: bool, button: Button) -> void:
 	if pressed:
-		other_button.button_pressed = false
+		for other: Button in _panels:
+			if other != button:
+				other.button_pressed = false
 		for picker_panel: PanelContainer in _pickers.values():
 			picker_panel.visible = false
-	panel.visible = pressed
+	_panels[button].visible = pressed
 
 
 ## A picker button (Build, Room) opens its panel of choices. The tool only
@@ -202,8 +250,8 @@ func _on_picker_toggled(pressed: bool, button: Button) -> void:
 	button.text = _picker_titles[button]
 	tool_selected.emit(ToolController.Tool.NONE)
 	if pressed:
-		_requests_button.button_pressed = false
-		_debug_button.button_pressed = false
+		for panel_button: Button in _panels:
+			panel_button.button_pressed = false
 	_pickers[button].visible = pressed
 
 

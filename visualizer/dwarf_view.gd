@@ -12,6 +12,8 @@ const BEARD_COLORS: Array[Color] = [
 const PICK_REST_ANGLE: float = -0.5
 const SWING_TICKS: float = 10.0
 const BOB_HEIGHT: float = 0.07
+const GOOD_MOOD_COLOR := Color(0.35, 0.9, 0.4)
+const BAD_MOOD_COLOR := Color(0.95, 0.3, 0.25)
 ## Dwarves stand anywhere within this fraction of a tile, so a group sharing a
 ## tile reads as a group.
 const STAND_SPREAD: float = 0.6
@@ -37,11 +39,14 @@ const FACING_CAMERA := Basis(Vector3(0, 0, 1), Vector3(0, 1, 0), Vector3(-1, 0, 
 @onready var _carried_box: MeshInstance3D = $Rig/CarriedBox
 @onready var _progress: MeshInstance3D = $Progress
 @onready var _speech: Label3D = $Speech
+@onready var _mood: MeshInstance3D = $Mood
 
 var _dwarf: Dwarf
 var _carried_material := StandardMaterial3D.new()
 var _carried_type: int = -1
 var _shown_speech: String = ""
+var _shown_mood: int = -1
+var _mood_material := StandardMaterial3D.new()
 ## The activity the dwarf was last posed for while standing still, or -1.
 var _resting_as: int = -1
 ## Sideways standing position within the tile, in tiles.
@@ -60,10 +65,17 @@ func bind(dwarf: Dwarf) -> void:
 	_carried_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_carried_ball.material_override = _carried_material
 	_carried_box.material_override = _carried_material
+	_mood_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_mood.material_override = _mood_material
 	_resting_as = -1
 
 
 func refresh(sim: Simulation, alpha: float) -> void:
+	if _dwarf.mood != _shown_mood:
+		# A small mark over the head: green when things are going well, red when not.
+		_shown_mood = _dwarf.mood
+		_mood.visible = _dwarf.mood != Dwarf.Mood.OK
+		_mood_material.albedo_color = GOOD_MOOD_COLOR if _dwarf.mood == Dwarf.Mood.GOOD else BAD_MOOD_COLOR
 	if _dwarf.speech != _shown_speech:
 		_shown_speech = _dwarf.speech
 		_speech.text = _shown_speech

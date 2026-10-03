@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" path="res://visualizer/dwarf_view.tscn" id="6_dwarf"]
 [ext_resource type="Script" path="res://visualizer/structure_layer.gd" id="7_structures"]
 [ext_resource type="Script" path="res://visualizer/furniture_layer.gd" id="8_furniture"]
+[ext_resource type="Script" path="res://visualizer/chip_layer.gd" id="9_chips"]
 
 [sub_resource type="Environment" id="environment"]
 background_mode = 1
@@ -74,6 +75,11 @@ use_colors = true
 mesh = SubResource("mesh_box")
 
 [sub_resource type="MultiMesh" id="mm_furniture"]
+transform_format = 1
+use_colors = true
+mesh = SubResource("mesh_box")
+
+[sub_resource type="MultiMesh" id="mm_chips"]
 transform_format = 1
 use_colors = true
 mesh = SubResource("mesh_box")
@@ -164,6 +170,10 @@ script = ExtResource("7_structures")
 
 [node name="Walkways" type="MultiMeshInstance3D" parent="Structures"]
 multimesh = SubResource("mm_walkways")
+
+[node name="Chips" type="MultiMeshInstance3D" parent="."]
+multimesh = SubResource("mm_chips")
+script = ExtResource("9_chips")
 
 [node name="Dwarves" type="Node3D" parent="."]
 

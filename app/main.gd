@@ -15,7 +15,11 @@ extends Node
 @onready var _tools: ToolController = $ToolController
 @onready var _window: WindowController = $WindowController
 
+## How often the HUD's colony readout is brought up to date.
+const COLONY_REFRESH_SECONDS: float = 0.5
+
 var _sim: Simulation
+var _colony_refresh_left: float = 0.0
 var _clock: SimClock
 
 
@@ -35,6 +39,7 @@ func _ready() -> void:
 	_hud.tool_selected.connect(_tools.set_tool)
 	_hud.room_tool_selected.connect(_tools.set_room_tool)
 	_hud.build_material_selected.connect(_tools.set_build_material)
+	_hud.stock_target_changed.connect(_sim.set_stock_target)
 	_hud.hire_requested.connect(_sim.hire_dwarf)
 	_hud.speed_selected.connect(func(multiplier: float) -> void: _clock.speed = multiplier)
 	_hud.reveal_toggled.connect(_world_view.set_reveal_all)
@@ -55,7 +60,11 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	for i in _clock.advance(delta):
 		_sim.tick()
-	_world_view.refresh(_clock.alpha)
+	_world_view.refresh(_clock.alpha, delta)
+	_colony_refresh_left -= delta
+	if _colony_refresh_left <= 0.0:
+		_colony_refresh_left = COLONY_REFRESH_SECONDS
+		_hud.refresh_colony()
 
 
 func _on_window_mode_changed(mode: WindowController.Mode) -> void:

@@ -43,6 +43,9 @@ var items_version: int = 0
 var dump_pile: Pile
 ## How many items have been tipped on the spoil heap.
 var dumped: int = 0
+## Standing orders: how many of each item type to keep in storage, per item
+## type index. Starts from ItemDef.stock_target; the player can change it.
+var stock_targets: PackedInt32Array
 ## Tick at which each Job.Kind was last taken up by a dwarf.
 var kind_served: PackedInt32Array
 
@@ -66,6 +69,8 @@ func _init(p_config: SimConfig, world_seed: int) -> void:
 	grid = WorldGenerator.generate(config.world_gen, config.materials, rng)
 	storage = Storage.new(config.items, config.pile_capacity)
 	kind_served.resize(Job.KIND_COUNT)
+	for item: ItemDef in config.items:
+		stock_targets.append(item.stock_target)
 	for material: MaterialDef in config.materials:
 		_drop_type.append(item_type(material.drop))
 	_name_order = _shuffled_indices(config.dwarf_names.size())
@@ -659,7 +664,7 @@ func _tick_quarries() -> void:
 					continue
 				if grid.is_dig_marked(x, y):
 					marked += 1
-				elif _is_short(_drop_type[grid.material_at(x, y)]) and _touches_open(x, y):
+				elif is_short(_drop_type[grid.material_at(x, y)]) and _touches_open(x, y):
 					candidates.append(Vector2i(x, y))
 		for tile: Vector2i in candidates:
 			if marked >= QUARRY_BATCH:
@@ -668,11 +673,16 @@ func _tick_quarries() -> void:
 			marked += 1
 
 
-## Fewer of this item in storage than the standing order asks for.
-func _is_short(type: int) -> bool:
+func set_stock_target(type: int, target: int) -> void:
+	stock_targets[type] = maxi(target, 0)
+
+
+## Fewer of this item in storage than the standing order asks for. Items with
+## no target are never short: they are only ever gathered on purpose.
+func is_short(type: int) -> bool:
 	if type == NO_ITEM:
 		return false
-	var target: int = item_def(type).stock_target
+	var target: int = stock_targets[type]
 	return target > 0 and storage.totals[type] < target
 
 

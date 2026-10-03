@@ -68,6 +68,12 @@ layout_mode = 2
 toggle_mode = true
 text = "Requests"
 
+[node name="OrdersButton" type="Button" parent="Bar"]
+layout_mode = 2
+tooltip_text = "Standing orders: how much of each thing to keep in store. Dwarves quarry, cut and pick until it is met."
+toggle_mode = true
+text = "Orders"
+
 [node name="DebugButton" type="Button" parent="Bar"]
 layout_mode = 2
 toggle_mode = true
@@ -81,6 +87,13 @@ theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 5
 text = "Stored: nothing yet"
 clip_text = true
+
+[node name="Mood" type="Label" parent="Bar"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 5
+text = "Mood: -"
 
 [node name="LayerUpButton" type="Button" parent="Bar"]
 layout_mode = 2
@@ -188,6 +201,29 @@ layout_mode = 2
 [node name="Title" type="Label" parent="RoomPanel/Row"]
 layout_mode = 2
 text = "Room type:"
+
+[node name="OrdersPanel" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 4.0
+offset_top = -146.0
+offset_right = 484.0
+offset_bottom = -34.0
+grow_vertical = 0
+
+[node name="Rows" type="VBoxContainer" parent="OrdersPanel"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="OrdersPanel/Rows"]
+layout_mode = 2
+text = "Keep in store:"
+
+[node name="Grid" type="GridContainer" parent="OrdersPanel/Rows"]
+layout_mode = 2
+columns = 6
 
 [node name="DebugPanel" type="PanelContainer" parent="."]
 visible = false
