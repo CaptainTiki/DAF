@@ -26,16 +26,17 @@ func _start(config: SimConfig) -> void:
 	SimFactory.place_dwarf(_dwarf, Vector2i(10, 6))
 
 
-## Places a bunk room and puts its beds in place without any crafting.
+## Places a bunk room with a bunk on every tile, in place without any crafting.
 func _bunk_room(rect: Rect2i) -> Room:
 	var room: Room = _sim.place_room(_bunks, rect)
-	for slot: RoomSlot in room.slots:
-		_sim.complete_site(slot.site)
+	SimFactory.furnish_bunks(_sim, room)
+	SimFactory.finish_sites(_sim, room)
 	return room
 
 
-func test_bunk_room_wants_a_bunk_on_every_tile() -> void:
+func test_each_placed_bunk_asks_for_one() -> void:
 	var room: Room = _sim.place_room(_bunks, Rect2i(3, 6, 4, 1))
+	SimFactory.furnish_bunks(_sim, room)
 	assert_eq(room.slots.size(), 4)
 	assert_eq(_sim.logistics.open_count_of(SimFactory.BED), 4)
 	assert_eq(room.slots[0].tile, Vector2i(3, 6))
@@ -172,8 +173,9 @@ func test_bunks_are_made_by_the_carpenter_and_set_in_place() -> void:
 	# Bench 2 wood, two bunks at 2 wood each.
 	for i in 6:
 		_sim.storage.put(pile, SimFactory.WOOD)
-	_sim.place_room(_sim.config.rooms[SimFactory.CARPENTRY], Rect2i(1, 6, 4, 1))
+	SimFactory.furnish_workshop(_sim, _sim.place_room(_sim.config.rooms[SimFactory.CARPENTRY], Rect2i(1, 6, 4, 1)))
 	var room: Room = _sim.place_room(_bunks, Rect2i(14, 6, 2, 1))
+	SimFactory.furnish_bunks(_sim, room)
 	SimFactory.run(_sim, 4000)
 	assert_true(room.slots[0].built)
 	assert_true(room.slots[1].built)

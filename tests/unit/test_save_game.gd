@@ -24,7 +24,7 @@ func _busy_colony() -> void:
 	# Wood lying about, a bench being built, a stair planned, and some digging.
 	_sim.spill(SimFactory.WOOD, 6, Vector2i(11, 6))
 	SimFactory.carve(_sim, Rect2i(15, 4, 4, 3))
-	_sim.place_room(_sim.config.rooms[SimFactory.CARPENTRY], Rect2i(15, 6, 4, 1))
+	SimFactory.furnish_workshop(_sim, _sim.place_room(_sim.config.rooms[SimFactory.CARPENTRY], Rect2i(15, 6, 4, 1)))
 	_sim.mark_stairs([Vector2i(9, 7), Vector2i(9, 8)], true)
 	_sim.mark_dig(Rect2i(10, 7, 3, 1), true)
 	_sim.mark_stockpile(Rect2i(13, 6, 2, 1), true)

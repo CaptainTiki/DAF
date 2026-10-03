@@ -1,9 +1,10 @@
 class_name ToolController
 extends Node
 ## Turns mouse drags on the world into player commands for the active tool.
-## Left drag marks; right drag (or Shift + drag) unmarks or removes.
+## Left drag marks; right drag (or Shift + drag) unmarks or removes. The
+## furniture tool places one piece per click, where the mouse is.
 
-enum Tool { NONE, DIG, STOCKPILE, STAIRS, FLOOR, REMOVE_STRUCTURE, ROOM, REMOVE_ROOM }
+enum Tool { NONE, DIG, STOCKPILE, STAIRS, FLOOR, REMOVE_STRUCTURE, ROOM, REMOVE_ROOM, FURNITURE, REMOVE_FURNITURE }
 
 const DIG_COLOR := Color(1.0, 0.82, 0.2, 0.3)
 const STAIRS_COLOR := Color(0.4, 1.0, 0.5, 0.4)
@@ -13,11 +14,14 @@ const UNMARK_COLOR := Color(1.0, 0.3, 0.25, 0.3)
 ## Taking a removal mark off again.
 const KEEP_COLOR := Color(0.9, 0.9, 0.9, 0.3)
 const INVALID_COLOR := Color(1.0, 0.15, 0.1, 0.45)
+const FURNITURE_COLOR := Color(0.9, 0.8, 0.5, 0.45)
 const ROOM_PREVIEW_ALPHA: float = 0.4
 
 var tool: Tool = Tool.NONE: set = set_tool
 ## The type of room the ROOM tool places.
 var room_def: RoomDef
+## The piece the FURNITURE tool places.
+var furniture_def: SlotDef
 ## What the STAIRS and FLOOR tools build from. Null uses the sim's default.
 var build_material: ItemDef
 
@@ -53,6 +57,12 @@ func set_room_tool(def: RoomDef) -> void:
 	set_tool(Tool.ROOM)
 
 
+## Switches to the FURNITURE tool for one piece.
+func set_furniture_tool(def: SlotDef) -> void:
+	furniture_def = def
+	set_tool(Tool.FURNITURE)
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if tool == Tool.NONE or _view == null:
 		return
@@ -74,6 +84,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseMotion and _dragging:
 		_drag_end = _view.camera.screen_to_tile((event as InputEventMouseMotion).position)
 		_show_preview()
+	elif event is InputEventMouseMotion and tool == Tool.FURNITURE:
+		# The piece follows the mouse before it is put down.
+		_drag_end = _view.camera.screen_to_tile((event as InputEventMouseMotion).position)
+		_show_furniture_preview()
 	elif event.is_action_pressed(&"ui_cancel") and _dragging:
 		_cancel_drag()
 
@@ -104,10 +118,24 @@ func _apply() -> void:
 				_sim.place_room(room_def, _drag_rect())
 		Tool.REMOVE_ROOM:
 			_sim.remove_rooms(_drag_rect())
+		Tool.FURNITURE:
+			if _unmark:
+				_sim.remove_furniture(_drag_rect())
+			elif furniture_def != null:
+				_sim.place_furniture(furniture_def, _drag_end)
+		Tool.REMOVE_FURNITURE:
+			_sim.remove_furniture(_drag_rect())
 
 
 func _show_preview() -> void:
 	match tool:
+		Tool.FURNITURE:
+			if _unmark:
+				_view.show_selection(_drag_rect(), UNMARK_COLOR)
+			else:
+				_show_furniture_preview()
+		Tool.REMOVE_FURNITURE:
+			_view.show_selection(_drag_rect(), UNMARK_COLOR)
 		Tool.STAIRS:
 			if _unmark:
 				_view.show_selection(_drag_rect(), UNMARK_COLOR)
@@ -138,6 +166,18 @@ func _show_room_preview() -> void:
 		_view.show_selection(_drag_rect(), INVALID_COLOR)
 	else:
 		_view.show_selection(fitted, Color(room_def.color, ROOM_PREVIEW_ALPHA))
+
+
+## Shows where the piece would go under the mouse, red if it can't go there.
+func _show_furniture_preview() -> void:
+	if furniture_def == null:
+		return
+	var fitted: Rect2i = _sim.furniture_fit(furniture_def, _drag_end)
+	if fitted.size == Vector2i.ZERO:
+		var span: int = furniture_def.width + (1 if furniture_def.output else 0)
+		_view.show_selection(Rect2i(_drag_end, Vector2i(span, 1)), INVALID_COLOR)
+	else:
+		_view.show_selection(fitted, FURNITURE_COLOR)
 
 
 func _cancel_drag() -> void:

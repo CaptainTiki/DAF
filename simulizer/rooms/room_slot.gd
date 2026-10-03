@@ -14,6 +14,8 @@ var built: bool = false
 ## The pending build, until it is done.
 var site: BuildSite
 var station: Station
+## STATION: the OUTPUT slot beside it, where its goods go.
+var output_slot: RoomSlot
 var pile: Pile
 var plant: Plant
 ## Id of the dwarf this belongs to, or -1. A bed is kept by the first dwarf to use it.

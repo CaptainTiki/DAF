@@ -1,7 +1,9 @@
 class_name Rooms
 extends RefCounted
-## All rooms and their stations. Placing a room lays out its slots from the
-## room type; each slot then asks for what it needs through build sites.
+## All rooms, what stands in them, and their stations. A room lays out only
+## what is part of the room itself (farm plots, a storeroom's floor); furniture
+## and stations are placed by the player, one at a time. Each slot then asks
+## for what it needs through a build site.
 
 ## Emitted when a room is placed or removed, or a slot gets built.
 signal changed
@@ -15,6 +17,9 @@ var rooms: Array[Room] = []
 var stations: Array[Station] = []
 
 var _room_at: Dictionary[Vector2i, Room] = {}
+## Placed furniture by every tile it covers and the lane it stands in (see
+## _lane); an output pile maps to its station.
+var _slot_at: Dictionary[Vector3i, RoomSlot] = {}
 var _next_id: int = 1
 ## Built slots per need id they satisfy. Null when it has to be counted again.
 var _provider_counts: Variant = null
@@ -73,16 +78,22 @@ func place(sim: Simulation, def: RoomDef, rect: Rect2i) -> Room:
 	room.feet_row = fitted.end.y - 1
 	room.anchor_x = fitted.position.x + def.margin
 
-	# Take over the rooms being joined: their slots are kept to be reused.
+	# Take over the rooms being joined. What the player placed in them stays;
+	# what they laid out themselves is kept where the new layout agrees.
 	var joined: Array[Room] = _rooms_to_join(def, room.feet_row, fitted.position.x, fitted.end.x - 1)
 	var old_slots: Array[RoomSlot] = []
 	var leftmost: Room = null
 	for old: Room in joined:
 		if leftmost == null or old.rect.position.x < leftmost.rect.position.x:
-			# Keep the layout lined up with the leftmost old room, so its benches don't move.
+			# Keep the layout lined up with the leftmost old room, so its plots don't move.
 			leftmost = old
 			room.anchor_x = old.anchor_x
-		old_slots.append_array(old.slots)
+		for slot: RoomSlot in old.slots:
+			if old.def.slots.has(slot.def):
+				old_slots.append(slot)
+			else:
+				slot.room = room
+				room.slots.append(slot)
 		old.slots.clear()
 		old.removed = true
 		rooms.erase(old)
@@ -98,12 +109,132 @@ func place(sim: Simulation, def: RoomDef, rect: Rect2i) -> Room:
 	# Whatever no longer has a place in the new layout drops to the floor.
 	for slot: RoomSlot in old_slots:
 		_clear_slot(sim, slot)
-	for slot: RoomSlot in room.slots:
-		if slot.station != null:
-			slot.station.output = _output_pile_for(slot)
 	_provider_counts = null
 	changed.emit()
 	return room
+
+
+# --- Furniture ---
+
+## Where a piece would stand if placed at this tile, or an empty rect if it
+## can't go there. The tile is where its left end goes; the row says how high
+## up the wall it sits. It needs a room of a type that takes it, every tile
+## it covers (and its output pile's) inside that room and free, and rock is
+## fine: it is dug out first.
+func furniture_fit(def: SlotDef, tile: Vector2i) -> Rect2i:
+	var room: Room = _room_at.get(tile)
+	if room == null or not def.allowed_in(room.def.id):
+		return Rect2i()
+	var rise: int = room.feet_row - tile.y
+	if rise < def.rise or rise > def.highest_rise():
+		return Rect2i()
+	var span: int = def.width + (1 if def.output else 0)
+	var lane: int = _lane(def)
+	for dx in span:
+		var covered := Vector2i(tile.x + dx, tile.y)
+		if _room_at.get(covered) != room or _slot_at.has(Vector3i(covered.x, covered.y, lane)):
+			return Rect2i()
+	return Rect2i(tile, Vector2i(span, 1))
+
+
+## Places a piece of furniture or a station. Null if it doesn't fit there.
+func place_furniture(sim: Simulation, def: SlotDef, tile: Vector2i) -> RoomSlot:
+	var footprint: Rect2i = furniture_fit(def, tile)
+	if footprint.size == Vector2i.ZERO:
+		return null
+	var room: Room = _room_at[tile]
+	var slot: RoomSlot = _make_slot(sim, room, def, tile)
+	if def.output:
+		var output_def := SlotDef.new()
+		output_def.kind = SlotDef.Kind.OUTPUT
+		slot.output_slot = _make_slot(sim, room, output_def, tile + Vector2i(def.width, 0))
+	_cover(slot)
+	changed.emit()
+	return slot
+
+
+## The placed pieces covering this tile: at most one at the back (a seat, a
+## bed, a shelf, a station) and one in front of it (a table).
+func furniture_at(tile: Vector2i) -> Array[RoomSlot]:
+	var found: Array[RoomSlot] = []
+	for lane in 2:
+		var slot: RoomSlot = _slot_at.get(Vector3i(tile.x, tile.y, lane))
+		if slot != null:
+			found.append(slot)
+	return found
+
+
+## A table stands in front of a chair, so the two can share a tile. Every
+## other piece stands at the back of its tile.
+static func _lane(def: SlotDef) -> int:
+	var is_table: bool = def.kind == SlotDef.Kind.FURNITURE and not def.seat and not def.storage and def.satisfies == &""
+	return 1 if is_table else 0
+
+
+func _cover(slot: RoomSlot) -> void:
+	var lane: int = _lane(slot.def)
+	for dx in slot.def.width + (1 if slot.def.output else 0):
+		_slot_at[Vector3i(slot.tile.x + dx, slot.tile.y, lane)] = slot
+
+
+## Takes away the furniture in the rect. A plan is simply cancelled; what is
+## built is marked, and a dwarf takes it apart into an item that is then
+## hauled off to storage. Returns how many pieces were affected.
+func remove_furniture(sim: Simulation, rect: Rect2i) -> int:
+	var found: Array[RoomSlot] = []
+	for y in range(rect.position.y, rect.end.y):
+		for x in range(rect.position.x, rect.end.x):
+			for slot: RoomSlot in furniture_at(Vector2i(x, y)):
+				if not found.has(slot):
+					found.append(slot)
+	var changed_count: int = 0
+	for slot: RoomSlot in found:
+		if not slot.built:
+			_remove_slot(sim, slot)
+			changed_count += 1
+		elif slot.site == null:
+			slot.site = sim.add_site(slot.tile, Simulation.NO_ITEM, 0, sim.config.remove_ticks, "", slot)
+			slot.site.removing = true
+			changed_count += 1
+	if changed_count > 0:
+		changed.emit()
+	return changed_count
+
+
+## Called when the site that takes a built piece apart is finished.
+func slot_removed(sim: Simulation, slot: RoomSlot) -> void:
+	slot.site = null
+	_remove_slot(sim, slot)
+	changed.emit()
+
+
+func _make_slot(sim: Simulation, room: Room, def: SlotDef, tile: Vector2i) -> RoomSlot:
+	var slot := RoomSlot.new()
+	slot.room = room
+	slot.def = def
+	slot.tile = tile
+	room.slots.append(slot)
+	match def.kind:
+		SlotDef.Kind.FURNITURE, SlotDef.Kind.STATION:
+			var purpose: String = "the %s" % room.def.display_name.to_lower()
+			slot.site = sim.add_site(tile, sim.item_type(def.item), def.item_count, def.work_ticks, purpose, slot)
+		SlotDef.Kind.OUTPUT:
+			slot.pile = sim.storage.add_pile(Pile.Kind.OUTPUT, tile, sim.config.pile_capacity)
+	return slot
+
+
+## Takes a placed piece (and its output pile) out of its room for good.
+func _remove_slot(sim: Simulation, slot: RoomSlot) -> void:
+	for key: Vector3i in _slot_at.keys():
+		if _slot_at[key] == slot:
+			_slot_at.erase(key)
+	_clear_slot(sim, slot)
+	slot.room.slots.erase(slot)
+	if slot.output_slot != null:
+		_clear_slot(sim, slot.output_slot)
+		slot.room.slots.erase(slot.output_slot)
+		slot.output_slot = null
+	_provider_counts = null
 
 ## Puts a room back from a save, slots as they were. Piles and plants are
 ## looked up by index in the lists SaveGame has already restored.
@@ -120,7 +251,10 @@ func restore_room(sim: Simulation, data: Dictionary, piles: Array[Pile], plants:
 	for slot_data: Dictionary in data["slots"]:
 		var slot := RoomSlot.new()
 		slot.room = room
-		slot.def = room.def.slots[slot_data["def"]]
+		if slot_data["placed"]:
+			slot.def = _furniture_def(sim, slot_data["def"])
+		else:
+			slot.def = room.def.slots[slot_data["def"]]
 		slot.tile = slot_data["tile"]
 		slot.unit = slot_data["unit"]
 		slot.built = slot_data["built"]
@@ -146,12 +280,30 @@ func restore_room(sim: Simulation, data: Dictionary, piles: Array[Pile], plants:
 				station.request.delivered = request["delivered"]
 			slot.station = station
 			stations.append(station)
-	for slot: RoomSlot in room.slots:
+	var slot_index: int = 0
+	for slot_data: Dictionary in data["slots"]:
+		var slot: RoomSlot = room.slots[slot_index]
+		slot_index += 1
+		if slot_data["output_slot"] >= 0:
+			slot.output_slot = room.slots[slot_data["output_slot"]]
+		if slot_data["placed"] and slot.def.kind != SlotDef.Kind.OUTPUT:
+			_cover(slot)
 		if slot.station != null:
 			slot.station.output = _output_pile_for(slot)
 	_provider_counts = null
 	changed.emit()
 	return room
+
+
+## A placed piece's definition, by id; an output pile has none and gets a
+## plain OUTPUT def.
+func _furniture_def(sim: Simulation, id: StringName) -> SlotDef:
+	for def: SlotDef in sim.config.furniture:
+		if def.id == id:
+			return def
+	var output_def := SlotDef.new()
+	output_def.kind = SlotDef.Kind.OUTPUT
+	return output_def
 
 
 func _room_def(sim: Simulation, id: StringName) -> RoomDef:
@@ -170,6 +322,9 @@ func remove(sim: Simulation, room: Room) -> void:
 	rooms.erase(room)
 	for slot: RoomSlot in room.slots:
 		_clear_slot(sim, slot)
+	for key: Vector3i in _slot_at.keys():
+		if _slot_at[key].room == room:
+			_slot_at.erase(key)
 	_set_tiles(sim, room.rect, null)
 	sim.mark_dig(room.rect, false)
 	_provider_counts = null
@@ -189,7 +344,8 @@ func rooms_in(rect: Rect2i) -> Array[Room]:
 func is_slot_ready(grid: TileGrid, slot: RoomSlot) -> bool:
 	if not grid.is_open(slot.tile.x, slot.tile.y):
 		return false
-	return slot.def.rise > 0 or grid.is_ground(slot.tile.x, slot.tile.y + 1)
+	var on_the_wall: bool = slot.tile.y < slot.room.feet_row
+	return on_the_wall or grid.is_ground(slot.tile.x, slot.tile.y + 1)
 
 
 ## Plants and stockpile spots come into being once their tile is dug out.
@@ -226,6 +382,14 @@ func slot_built(sim: Simulation, slot: RoomSlot) -> void:
 		stations.append(station)
 	_provider_counts = null
 	changed.emit()
+
+
+## Called when a site is finished, whichever way it went.
+func site_finished(sim: Simulation, site: BuildSite) -> void:
+	if site.removing:
+		slot_removed(sim, site.slot)
+	else:
+		slot_built(sim, site.slot)
 
 
 ## Stations take orders, ask for inputs and offer craft jobs. Slots that need
@@ -365,6 +529,13 @@ func _lay_out(sim: Simulation, room: Room, reusable: Array[RoomSlot]) -> void:
 				# Plants and stockpile spots wait for their tile to be dug out; see _activate_slots.
 		base_x += pattern_width
 		unit += 1
+	for slot: RoomSlot in room.slots:
+		if slot.def.kind == SlotDef.Kind.STATION and slot.output_slot == null:
+			for other: RoomSlot in room.slots:
+				if other.unit == slot.unit and other.def.kind == SlotDef.Kind.OUTPUT and def.slots.has(other.def):
+					slot.output_slot = other
+		if slot.station != null:
+			slot.station.output = _output_pile_for(slot)
 
 
 func _take_matching(slots: Array[RoomSlot], def: SlotDef, tile: Vector2i) -> RoomSlot:
@@ -439,10 +610,9 @@ func _clear_slot(sim: Simulation, slot: RoomSlot) -> void:
 
 
 func _output_pile_for(station_slot: RoomSlot) -> Pile:
-	for slot: RoomSlot in station_slot.room.slots:
-		if slot.unit == station_slot.unit and slot.def.kind == SlotDef.Kind.OUTPUT:
-			return slot.pile
-	return null
+	if station_slot.output_slot == null:
+		return null
+	return station_slot.output_slot.pile
 
 
 ## An open tile with ground under it, underground.

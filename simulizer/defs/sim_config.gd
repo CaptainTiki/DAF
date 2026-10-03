@@ -10,6 +10,8 @@ extends Resource
 @export var recipes: Array[RecipeDef] = []
 ## Room types offered to the player, in picker order.
 @export var rooms: Array[RoomDef] = []
+## Furniture and stations the player places in rooms, in picker order.
+@export var furniture: Array[SlotDef] = []
 ## What dwarves need from time to time. Need index = position in this array.
 @export var needs: Array[NeedDef] = []
 @export var world_gen: WorldGenConfig

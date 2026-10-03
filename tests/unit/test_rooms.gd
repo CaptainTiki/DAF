@@ -12,8 +12,8 @@ var _hall: RoomDef
 func before_each() -> void:
 	_sim = SimFactory.make_sim()
 	SimFactory.carve(_sim, Rect2i(1, 4, 22, 3))
-	_carpentry = _sim.config.rooms[0]
-	_hall = _sim.config.rooms[1]
+	_carpentry = _sim.config.rooms[SimFactory.CARPENTRY]
+	_hall = _sim.config.rooms[SimFactory.HALL]
 
 
 func _supply(type: int, count: int, tile: Vector2i) -> Pile:
@@ -39,7 +39,11 @@ func _built_count(room: Room) -> int:
 	return count
 
 
-# --- Placing ---
+func _piece(index: int) -> SlotDef:
+	return _sim.config.furniture[index]
+
+
+# --- Placing rooms ---
 
 func test_room_grows_up_to_its_minimum_height_from_the_dragged_row() -> void:
 	# Dragged over just the floor row; the room takes the space above it.
@@ -49,6 +53,7 @@ func test_room_grows_up_to_its_minimum_height_from_the_dragged_row() -> void:
 	assert_eq(room.feet_row, 6)
 	assert_true(_sim.grid.has_flag(8, 4, TileGrid.FLAG_ROOM))
 	assert_eq(_sim.rooms.room_at(Vector2i(10, 5)), room)
+	assert_eq(room.slots.size(), 0, "a room comes empty; the player furnishes it")
 
 
 func test_room_needs_its_minimum_width() -> void:
@@ -63,6 +68,85 @@ func test_room_cannot_go_in_the_sky_or_over_nothing() -> void:
 	SimFactory.carve(_sim, Rect2i(8, 8, 5, 3))
 	assert_false(_sim.can_place_room(_hall, Rect2i(8, 7, 5, 1)), "the row below is open")
 	assert_true(_sim.can_place_room(_hall, Rect2i(8, 10, 5, 1)), "down on the real floor is fine")
+
+
+# --- Placing furniture ---
+
+func test_furniture_goes_in_a_room_that_takes_it() -> void:
+	_sim.place_room(_hall, Rect2i(8, 6, 5, 1))
+	assert_eq(_sim.furniture_fit(_piece(SimFactory.CHAIR_PIECE), Vector2i(7, 6)).size, Vector2i.ZERO, "outside any room")
+	assert_eq(_sim.furniture_fit(_piece(SimFactory.BED_PIECE), Vector2i(9, 6)).size, Vector2i.ZERO, "a bunk does not go in a hall")
+	assert_eq(_sim.furniture_fit(_piece(SimFactory.CHAIR_PIECE), Vector2i(9, 5)).size, Vector2i.ZERO, "chairs stand on the floor")
+	assert_eq(_sim.furniture_fit(_piece(SimFactory.CHAIR_PIECE), Vector2i(9, 6)), Rect2i(9, 6, 1, 1))
+	var chair: RoomSlot = _sim.place_furniture(_piece(SimFactory.CHAIR_PIECE), Vector2i(9, 6))
+	assert_not_null(chair)
+	assert_eq(chair.room, _sim.rooms.rooms[0])
+	assert_not_null(chair.site, "asks for a chair")
+	assert_eq(_sim.logistics.open_count_of(SimFactory.CHAIR), 1)
+	assert_null(_sim.place_furniture(_piece(SimFactory.CHAIR_PIECE), Vector2i(9, 6)), "the spot is taken")
+	assert_not_null(_sim.place_furniture(_piece(SimFactory.TABLE_PIECE), Vector2i(9, 6)), "but a table stands in front of a chair")
+	assert_eq(_sim.rooms.furniture_at(Vector2i(9, 6)).size(), 2)
+
+
+func test_bench_takes_three_tiles_and_one_for_its_output() -> void:
+	_sim.place_room(_carpentry, Rect2i(1, 6, 4, 1))
+	assert_eq(_sim.furniture_fit(_piece(SimFactory.BENCH), Vector2i(2, 6)).size, Vector2i.ZERO, "runs out of the room")
+	assert_eq(_sim.furniture_fit(_piece(SimFactory.BENCH), Vector2i(1, 6)), Rect2i(1, 6, 4, 1))
+	var bench: RoomSlot = _sim.place_furniture(_piece(SimFactory.BENCH), Vector2i(1, 6))
+	assert_not_null(bench.output_slot)
+	assert_eq(bench.output_slot.tile, Vector2i(4, 6))
+	assert_not_null(bench.output_slot.pile)
+	assert_eq(_sim.rooms.rooms[0].slots.size(), 2)
+	assert_eq(_sim.rooms.furniture_at(Vector2i(4, 6))[0], bench, "the output tile belongs to the bench")
+
+
+func test_shelves_go_on_the_wall_rows() -> void:
+	_sim.place_room(_sim.config.rooms[SimFactory.STOREROOM], Rect2i(8, 6, 2, 1))
+	assert_eq(_sim.furniture_fit(_piece(SimFactory.SHELF_PIECE), Vector2i(8, 6)).size, Vector2i.ZERO, "not on the floor")
+	assert_eq(_sim.furniture_fit(_piece(SimFactory.SHELF_PIECE), Vector2i(8, 5)), Rect2i(8, 5, 1, 1))
+	assert_eq(_sim.furniture_fit(_piece(SimFactory.SHELF_PIECE), Vector2i(8, 4)), Rect2i(8, 4, 1, 1))
+	assert_eq(_sim.furniture_fit(_piece(SimFactory.SHELF_PIECE), Vector2i(8, 3)).size, Vector2i.ZERO, "too high")
+
+
+func test_removing_a_plan_cancels_it_at_once() -> void:
+	_sim.place_room(_hall, Rect2i(8, 6, 5, 1))
+	var chair: RoomSlot = SimFactory.place(_sim, SimFactory.CHAIR_PIECE, Vector2i(9, 6))
+	chair.site.request.delivered = 1
+	assert_eq(_sim.remove_furniture(Rect2i(9, 6, 1, 1)), 1)
+	assert_eq(_sim.rooms.rooms[0].slots.size(), 0)
+	assert_eq(_sim.sites.size(), 0)
+	assert_eq(_sim.items.size(), 1, "the delivered chair is left on the floor")
+	assert_eq(_sim.rooms.furniture_at(Vector2i(9, 6)).size(), 0, "the spot is free again")
+
+
+func test_built_furniture_is_taken_apart_by_a_dwarf_and_carried_to_storage() -> void:
+	var dwarf := _sim.hire_dwarf()
+	SimFactory.place_dwarf(dwarf, Vector2i(14, 6))
+	_sim.mark_stockpile(Rect2i(18, 6, 2, 1), true)
+	var hall: Room = _sim.place_room(_hall, Rect2i(8, 6, 5, 1))
+	var chair: RoomSlot = SimFactory.place(_sim, SimFactory.CHAIR_PIECE, Vector2i(9, 6))
+	_sim.complete_site(chair.site)
+	assert_eq(_sim.remove_furniture(Rect2i(8, 6, 5, 1)), 1)
+	assert_true(chair.built, "still standing until a dwarf gets to it")
+	assert_not_null(chair.site)
+	assert_true(chair.site.removing)
+	SimFactory.run(_sim, 400)
+	assert_eq(hall.slots.size(), 0, "gone from the room")
+	assert_eq(_sim.storage.totals[SimFactory.CHAIR], 1, "and put away")
+	assert_eq(_sim.items.size(), 0)
+
+
+func test_removing_a_bench_drops_its_wood_and_output() -> void:
+	_sim.place_room(_carpentry, Rect2i(1, 6, 4, 1))
+	var bench: RoomSlot = SimFactory.place(_sim, SimFactory.BENCH, Vector2i(1, 6))
+	_sim.complete_site(bench.site)
+	_sim.storage.put(bench.output_slot.pile, SimFactory.CHAIR)
+	assert_eq(_sim.remove_furniture(Rect2i(4, 6, 1, 1)), 1, "clicking the output pile removes the bench")
+	_sim.complete_site(bench.site)
+	assert_eq(_sim.rooms.stations.size(), 0)
+	assert_eq(_sim.storage.piles.size(), 0)
+	assert_eq(_sim.items.size(), 3, "two wood from the bench and one chair")
+	assert_eq(_sim.rooms.rooms[0].slots.size(), 0)
 
 
 # --- Planning in rock ---
@@ -88,7 +172,7 @@ func test_dig_tool_leaves_rooms_alone() -> void:
 
 func test_furniture_waits_until_the_room_is_dug_out() -> void:
 	var room: Room = _sim.place_room(_hall, Rect2i(8, 12, 5, 2))
-	var chair: RoomSlot = _slots_of(room, SimFactory.CHAIR)[0]
+	var chair: RoomSlot = SimFactory.place(_sim, SimFactory.CHAIR_PIECE, Vector2i(9, 13))
 	# Deliver the chair while its tile is still rock: it must not be set up in there.
 	chair.site.request.delivered = 1
 	SimFactory.run(_sim, 30)
@@ -115,9 +199,10 @@ func test_dwarves_dig_out_a_planned_room_and_furnish_it() -> void:
 	for i in 2:
 		SimFactory.place_dwarf(_sim.hire_dwarf(), Vector2i(10 + i, 6))
 	_supply(SimFactory.WOOD, 11, Vector2i(7, 6))
-	_sim.place_room(_sim.config.rooms[SimFactory.CARPENTRY], Rect2i(1, 6, 4, 1))
-	var hall: Room = _sim.place_room(_sim.config.rooms[SimFactory.HALL], Rect2i(23, 6, 5, 1))
+	SimFactory.furnish_workshop(_sim, _sim.place_room(_carpentry, Rect2i(1, 6, 4, 1)))
+	var hall: Room = _sim.place_room(_hall, Rect2i(23, 6, 5, 1))
 	assert_not_null(hall)
+	SimFactory.furnish_hall(_sim, hall)
 	assert_true(_sim.grid.is_solid(24, 5), "in rock to start with")
 	SimFactory.run(_sim, 8000)
 	for y in range(4, 7):
@@ -134,7 +219,7 @@ func test_planned_room_with_no_way_in_waits_until_a_tunnel_is_marked() -> void:
 	_sim = SimFactory.make_sim(config)
 	SimFactory.carve(_sim, Rect2i(1, 4, 22, 3))
 	SimFactory.place_dwarf(_sim.hire_dwarf(), Vector2i(10, 6))
-	var hall: Room = _sim.place_room(_sim.config.rooms[SimFactory.HALL], Rect2i(25, 6, 5, 1))
+	var hall: Room = _sim.place_room(_hall, Rect2i(25, 6, 5, 1))
 	assert_not_null(hall)
 	SimFactory.run(_sim, 1500)
 	for y in range(4, 7):
@@ -152,15 +237,16 @@ func test_planned_room_with_no_way_in_waits_until_a_tunnel_is_marked() -> void:
 # --- Storerooms ---
 
 func test_storeroom_floor_is_storage_at_once_and_shelves_once_built() -> void:
-	var storeroom: RoomDef = _sim.config.rooms[SimFactory.STOREROOM]
-	var room: Room = _sim.place_room(storeroom, Rect2i(8, 6, 3, 1))
-	assert_eq(room.slots.size(), 9, "a floor spot and two shelves per tile")
+	var room: Room = _sim.place_room(_sim.config.rooms[SimFactory.STOREROOM], Rect2i(8, 6, 3, 1))
+	assert_eq(room.slots.size(), 3, "a floor spot per tile")
+	var shelves: Array[RoomSlot] = SimFactory.furnish_storeroom(_sim, room)
+	assert_eq(shelves.size(), 6)
 	SimFactory.run(_sim, 25)
 	assert_eq(_sim.storage.tile_count(), 3, "the floor spots")
 	assert_true(_sim.grid.is_stockpile(9, 6))
 	assert_false(_sim.grid.is_stockpile(9, 5), "no shelf yet")
-	for slot: RoomSlot in room.slots:
-		if slot.def.rise == 1 and slot.tile.x == 9:
+	for slot: RoomSlot in shelves:
+		if slot.tile == Vector2i(9, 5):
 			_sim.complete_site(slot.site)
 	assert_true(_sim.grid.is_stockpile(9, 5), "the shelf is storage")
 	assert_eq(_sim.storage.tile_count(), 4)
@@ -174,9 +260,8 @@ func test_goods_are_stored_on_shelves() -> void:
 	# Width 1 is below the minimum; use 2.
 	assert_null(room)
 	room = _sim.place_room(_sim.config.rooms[SimFactory.STOREROOM], Rect2i(8, 6, 2, 1))
-	for slot: RoomSlot in room.slots:
-		if slot.site != null:
-			_sim.complete_site(slot.site)
+	SimFactory.furnish_storeroom(_sim, room)
+	SimFactory.finish_sites(_sim, room)
 	SimFactory.run(_sim, 25)
 	assert_eq(_sim.storage.tile_count(), 6)
 	for i in 25:
@@ -192,9 +277,8 @@ func test_goods_are_stored_on_shelves() -> void:
 
 func test_removing_a_storeroom_spills_the_shelves() -> void:
 	var room: Room = _sim.place_room(_sim.config.rooms[SimFactory.STOREROOM], Rect2i(8, 6, 2, 1))
-	for slot: RoomSlot in room.slots:
-		if slot.site != null:
-			_sim.complete_site(slot.site)
+	SimFactory.furnish_storeroom(_sim, room)
+	SimFactory.finish_sites(_sim, room)
 	SimFactory.run(_sim, 25)
 	_sim.remove_rooms(room.rect)
 	assert_eq(_sim.storage.tile_count(), 0)
@@ -212,8 +296,6 @@ func test_touching_halls_become_one_hall() -> void:
 	var joined: Room = _sim.place_room(_hall, Rect2i(13, 6, 5, 1))
 	assert_eq(_sim.rooms.rooms.size(), 1)
 	assert_eq(joined.rect, Rect2i(8, 4, 10, 3))
-	assert_eq(_slots_of(joined, SimFactory.CHAIR).size(), 8, "laid out as one 10-wide hall")
-	assert_eq(_sim.logistics.open_count_of(SimFactory.CHAIR), 8)
 	assert_eq(_sim.rooms.room_at(Vector2i(9, 5)), joined)
 	assert_eq(_sim.rooms.room_at(Vector2i(16, 5)), joined)
 
@@ -241,44 +323,37 @@ func test_a_new_hall_can_bridge_two_others() -> void:
 
 func test_furniture_stays_in_place_when_a_hall_is_extended() -> void:
 	var hall: Room = _sim.place_room(_hall, Rect2i(8, 6, 5, 1))
-	var chair: RoomSlot = _slots_of(hall, SimFactory.CHAIR)[1]
+	var chair: RoomSlot = SimFactory.place(_sim, SimFactory.CHAIR_PIECE, Vector2i(10, 6))
+	var table: RoomSlot = SimFactory.place(_sim, SimFactory.TABLE_PIECE, Vector2i(10, 6))
 	_sim.complete_site(chair.site)
 	var joined: Room = _sim.place_room(_hall, Rect2i(13, 6, 5, 1))
 	assert_true(chair.built, "still standing")
 	assert_eq(chair.room, joined)
 	assert_true(joined.slots.has(chair))
+	assert_true(joined.slots.has(table))
 	assert_eq(_sim.items.size(), 0, "nothing was dropped")
 	assert_eq(_built_count(joined), 1)
-	assert_eq(_sim.logistics.open_count_of(SimFactory.CHAIR), 7, "only the missing ones are asked for")
-	assert_eq(_sim.sites.size(), 15, "7 chairs and 8 tables still to come")
+	assert_eq(_sim.logistics.open_count_of(SimFactory.TABLE), 1, "the table is still asked for")
+	assert_eq(_sim.rooms.furniture_at(Vector2i(10, 6)).size(), 2, "and both still hold their spot")
+	assert_null(_sim.place_furniture(_piece(SimFactory.CHAIR_PIECE), Vector2i(10, 6)))
 
 
-func test_extending_a_hall_to_the_left_keeps_its_furniture() -> void:
-	var hall: Room = _sim.place_room(_hall, Rect2i(8, 6, 5, 1))
-	var chair: RoomSlot = _slots_of(hall, SimFactory.CHAIR)[0]
-	_sim.complete_site(chair.site)
-	var joined: Room = _sim.place_room(_hall, Rect2i(3, 6, 5, 1))
-	assert_eq(joined.rect, Rect2i(3, 4, 10, 3))
-	assert_true(chair.built)
-	assert_eq(chair.tile, Vector2i(9, 6))
-	assert_eq(_slots_of(joined, SimFactory.CHAIR).size(), 8)
-
-
-func test_extending_a_workshop_keeps_its_bench_and_adds_another() -> void:
+func test_extending_a_workshop_keeps_its_bench() -> void:
 	var workshop: Room = _sim.place_room(_carpentry, Rect2i(6, 6, 4, 1))
-	_sim.complete_site(workshop.slots[0].site)
+	var bench: RoomSlot = SimFactory.place(_sim, SimFactory.BENCH, Vector2i(6, 6))
+	_sim.complete_site(bench.site)
 	var station: Station = _sim.rooms.stations[0]
 	_sim.storage.put(station.output, SimFactory.CHAIR)
-	# Extended to the left by a width that doesn't line up with the bench spacing.
 	var joined: Room = _sim.place_room(_carpentry, Rect2i(1, 6, 5, 1))
 	assert_eq(joined.rect, Rect2i(1, 4, 9, 3))
+	assert_ne(joined, workshop)
 	assert_eq(_sim.rooms.stations.size(), 1)
 	assert_eq(_sim.rooms.stations[0], station, "the same bench")
 	assert_eq(station.tile, Vector2i(7, 6), "where it was")
 	assert_eq(station.output.count_of(SimFactory.CHAIR), 1, "with its output pile")
 	assert_eq(_sim.items.size(), 0)
-	assert_eq(joined.slots.size(), 4, "and a second bench in the new space")
-	assert_eq(joined.slots[0].tile, Vector2i(2, 6), "lined up with the first, leaving the odd tile at the end")
+	assert_eq(joined.slots.size(), 2, "the bench and its pile")
+	assert_not_null(_sim.place_furniture(_piece(SimFactory.BENCH), Vector2i(1, 6)), "room for a second bench")
 
 
 func test_rooms_and_stockpiles_keep_apart() -> void:
@@ -288,36 +363,6 @@ func test_rooms_and_stockpiles_keep_apart() -> void:
 	assert_eq(_sim.mark_stockpile(Rect2i(8, 6, 5, 1), true), 0)
 
 
-# --- Layout from size ---
-
-func test_five_wide_hall_wants_three_chairs_and_three_tables() -> void:
-	var room: Room = _sim.place_room(_hall, Rect2i(8, 6, 5, 1))
-	assert_eq(_slots_of(room, SimFactory.CHAIR).size(), 3)
-	assert_eq(_slots_of(room, SimFactory.TABLE).size(), 3)
-	var chairs := _slots_of(room, SimFactory.CHAIR)
-	assert_eq(chairs[0].tile, Vector2i(9, 6), "one tile in from the end")
-	assert_eq(chairs[2].tile, Vector2i(11, 6))
-
-
-func test_ten_wide_hall_wants_eight_of_each() -> void:
-	var room: Room = _sim.place_room(_hall, Rect2i(8, 6, 10, 1))
-	assert_eq(_slots_of(room, SimFactory.CHAIR).size(), 8)
-	assert_eq(_slots_of(room, SimFactory.TABLE).size(), 8)
-
-
-func test_wider_workshop_gets_more_benches() -> void:
-	var small: Room = _sim.place_room(_carpentry, Rect2i(1, 6, 4, 1))
-	var big: Room = _sim.place_room(_carpentry, Rect2i(6, 6, 9, 1))
-	assert_eq(small.slots.size(), 2, "one bench and its output pile")
-	assert_eq(big.slots.size(), 4, "two benches fit in 9; the odd tile is left over")
-
-
-func test_each_empty_slot_asks_for_its_item() -> void:
-	_sim.place_room(_hall, Rect2i(8, 6, 5, 1))
-	assert_eq(_sim.logistics.open_count_of(SimFactory.CHAIR), 3)
-	assert_eq(_sim.logistics.open_count_of(SimFactory.TABLE), 3)
-
-
 # --- Bench, orders, crafting ---
 
 func test_bench_is_built_from_delivered_wood() -> void:
@@ -325,12 +370,13 @@ func test_bench_is_built_from_delivered_wood() -> void:
 	SimFactory.place_dwarf(dwarf, Vector2i(10, 6))
 	_supply(SimFactory.WOOD, 2, Vector2i(8, 6))
 	var room: Room = _sim.place_room(_carpentry, Rect2i(1, 6, 4, 1))
+	var bench: RoomSlot = SimFactory.furnish_workshop(_sim, room)
 	assert_eq(_sim.rooms.stations.size(), 0)
 	SimFactory.run(_sim, 600)
 	assert_eq(_sim.rooms.stations.size(), 1)
-	assert_true(room.slots[0].built)
+	assert_true(bench.built)
 	assert_eq(_sim.rooms.stations[0].tile, Vector2i(2, 6), "the worker stands at the middle of the bench")
-	assert_eq(_sim.rooms.stations[0].output, room.slots[1].pile)
+	assert_eq(_sim.rooms.stations[0].output, bench.output_slot.pile)
 	assert_eq(_sim.storage.totals[SimFactory.WOOD], 0)
 
 
@@ -338,7 +384,7 @@ func test_no_orders_without_demand() -> void:
 	var dwarf := _sim.hire_dwarf()
 	SimFactory.place_dwarf(dwarf, Vector2i(10, 6))
 	_supply(SimFactory.WOOD, 6, Vector2i(8, 6))
-	_sim.place_room(_carpentry, Rect2i(1, 6, 4, 1))
+	SimFactory.furnish_workshop(_sim, _sim.place_room(_carpentry, Rect2i(1, 6, 4, 1)))
 	SimFactory.run(_sim, 1200)
 	assert_eq(_sim.rooms.stations.size(), 1)
 	assert_null(_sim.rooms.stations[0].recipe, "nothing is asking for furniture")
@@ -351,8 +397,11 @@ func test_hall_is_furnished_end_to_end() -> void:
 		SimFactory.place_dwarf(_sim.hire_dwarf(), Vector2i(10 + i, 6))
 	# Bench 2 wood, 3 chairs at 1 wood, 3 tables at 2 wood.
 	_supply(SimFactory.WOOD, 11, Vector2i(7, 6))
-	_sim.place_room(_carpentry, Rect2i(1, 6, 4, 1))
+	SimFactory.furnish_workshop(_sim, _sim.place_room(_carpentry, Rect2i(1, 6, 4, 1)))
 	var hall: Room = _sim.place_room(_hall, Rect2i(12, 6, 5, 1))
+	SimFactory.furnish_hall(_sim, hall)
+	assert_eq(_sim.logistics.open_count_of(SimFactory.CHAIR), 3)
+	assert_eq(_sim.logistics.open_count_of(SimFactory.TABLE), 3)
 	SimFactory.run(_sim, 6000)
 	assert_eq(_built_count(hall), 6, "three chairs and three tables in place")
 	assert_eq(_sim.storage.totals[SimFactory.WOOD], 0, "exactly the wood needed was used")
@@ -368,8 +417,8 @@ func test_worker_keeps_the_bench_as_a_post() -> void:
 	for i in 2:
 		SimFactory.place_dwarf(_sim.hire_dwarf(), Vector2i(10 + i, 6))
 	_supply(SimFactory.WOOD, 11, Vector2i(7, 6))
-	_sim.place_room(_carpentry, Rect2i(1, 6, 4, 1))
-	_sim.place_room(_hall, Rect2i(12, 6, 5, 1))
+	SimFactory.furnish_workshop(_sim, _sim.place_room(_carpentry, Rect2i(1, 6, 4, 1)))
+	SimFactory.furnish_hall(_sim, _sim.place_room(_hall, Rect2i(12, 6, 5, 1)))
 	var crafters: Dictionary[int, int] = {}
 	for i in 6000:
 		_sim.tick()
@@ -389,7 +438,7 @@ func test_full_output_pile_blocks_the_bench_until_cleared() -> void:
 	var dwarf := _sim.hire_dwarf()
 	SimFactory.place_dwarf(dwarf, Vector2i(10, 6))
 	_supply(SimFactory.WOOD, 5, Vector2i(8, 6))
-	_sim.place_room(_sim.config.rooms[0], Rect2i(1, 6, 4, 1))
+	SimFactory.furnish_workshop(_sim, _sim.place_room(_sim.config.rooms[SimFactory.CARPENTRY], Rect2i(1, 6, 4, 1)))
 	_sim.logistics.add(Vector2i(20, 20), SimFactory.CHAIR, 3, "somewhere out of reach")
 	SimFactory.run(_sim, 3000)
 	var station: Station = _sim.rooms.stations[0]
@@ -398,11 +447,12 @@ func test_full_output_pile_blocks_the_bench_until_cleared() -> void:
 	assert_null(station.job)
 
 
-# --- Removing ---
+# --- Removing rooms ---
 
 func test_removing_a_hall_drops_its_furniture() -> void:
 	var hall: Room = _sim.place_room(_hall, Rect2i(8, 6, 5, 1))
-	_sim.complete_site(_slots_of(hall, SimFactory.CHAIR)[0].site)
+	var chairs: Array[RoomSlot] = SimFactory.furnish_hall(_sim, hall)
+	_sim.complete_site(chairs[0].site)
 	assert_eq(_built_count(hall), 1)
 	assert_eq(_sim.remove_rooms(Rect2i(10, 5, 1, 1)), 1)
 	assert_eq(_sim.rooms.rooms.size(), 0)
@@ -411,12 +461,14 @@ func test_removing_a_hall_drops_its_furniture() -> void:
 	assert_eq(_sim.items.size(), 1, "the chair is on the floor")
 	assert_false(_sim.grid.has_flag(8, 4, TileGrid.FLAG_ROOM))
 	assert_null(_sim.rooms.room_at(Vector2i(10, 5)))
+	assert_eq(_sim.rooms.furniture_at(Vector2i(9, 6)).size(), 0)
 
 
 func test_removing_a_workshop_drops_bench_wood_and_output() -> void:
 	var room: Room = _sim.place_room(_carpentry, Rect2i(1, 6, 4, 1))
-	_sim.complete_site(room.slots[0].site)
-	_sim.storage.put(room.slots[1].pile, SimFactory.CHAIR)
+	var bench: RoomSlot = SimFactory.furnish_workshop(_sim, room)
+	_sim.complete_site(bench.site)
+	_sim.storage.put(bench.output_slot.pile, SimFactory.CHAIR)
 	_sim.remove_rooms(Rect2i(1, 6, 1, 1))
 	assert_eq(_sim.rooms.stations.size(), 0)
 	assert_eq(_sim.storage.piles.size(), 0)
@@ -433,8 +485,8 @@ func test_idle_dwarf_sits_on_a_free_chair_and_gets_up_for_work() -> void:
 	config.sit_ticks_max = 5000
 	_sim = SimFactory.make_sim(config)
 	SimFactory.carve(_sim, Rect2i(1, 4, 22, 3))
-	var hall: Room = _sim.place_room(_sim.config.rooms[1], Rect2i(8, 6, 5, 1))
-	var chair: RoomSlot = _slots_of(hall, SimFactory.CHAIR)[0]
+	var hall: Room = _sim.place_room(_sim.config.rooms[SimFactory.HALL], Rect2i(8, 6, 5, 1))
+	var chair: RoomSlot = SimFactory.furnish_hall(_sim, hall)[0]
 	_sim.complete_site(chair.site)
 	var dwarf := _sim.hire_dwarf()
 	SimFactory.place_dwarf(dwarf, Vector2i(15, 6))
@@ -459,8 +511,8 @@ func test_two_dwarves_do_not_share_a_chair() -> void:
 	config.sit_ticks_max = 5000
 	_sim = SimFactory.make_sim(config)
 	SimFactory.carve(_sim, Rect2i(1, 4, 22, 3))
-	var hall: Room = _sim.place_room(_sim.config.rooms[1], Rect2i(8, 6, 5, 1))
-	_sim.complete_site(_slots_of(hall, SimFactory.CHAIR)[0].site)
+	var hall: Room = _sim.place_room(_sim.config.rooms[SimFactory.HALL], Rect2i(8, 6, 5, 1))
+	_sim.complete_site(SimFactory.furnish_hall(_sim, hall)[0].site)
 	var first := _sim.hire_dwarf()
 	var second := _sim.hire_dwarf()
 	SimFactory.place_dwarf(first, Vector2i(15, 6))

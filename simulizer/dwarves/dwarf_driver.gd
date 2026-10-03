@@ -440,7 +440,7 @@ func _try_work(sim: Simulation, dwarf: Dwarf, flood_map: FloodMap, jobs: Array[J
 		# the crew along the work face instead of stacking them on one tile.
 		var score: int = flood_map.distance_to(spot.x, spot.y) * 1000 - job.tile.y
 		score += _dwarves_bound_for(sim, dwarf, spot) * CROWDED_SPOT_PENALTY
-		if job.kind == Job.Kind.BUILD and job.site.removing:
+		if job.kind == Job.Kind.BUILD and job.site.removing and job.site.slot == null:
 			# Taking things down starts at the far end, so the dwarf works back
 			# towards the way out and never cuts off the rest of the run.
 			score = -score
@@ -458,7 +458,7 @@ func _try_work(sim: Simulation, dwarf: Dwarf, flood_map: FloodMap, jobs: Array[J
 ## taken down from the tile beside. Scaffolding holds up the tile above, so a
 ## dwarf can take it down while standing in it.
 func _must_work_from_beside(job: Job) -> bool:
-	return job.kind == Job.Kind.BUILD and job.site.removing and job.site.structure != TileGrid.STRUCTURE_SCAFFOLD
+	return job.kind == Job.Kind.BUILD and job.site.removing and job.site.slot == null and job.site.structure != TileGrid.STRUCTURE_SCAFFOLD
 
 
 ## A station's craft job is kept for the dwarf whose post it is, for a while.

@@ -24,15 +24,15 @@ func before_each() -> void:
 ## A hall with its chairs and tables in place, no crafting needed.
 func _hall(rect: Rect2i) -> Room:
 	var room: Room = _sim.place_room(_sim.config.rooms[SimFactory.HALL], rect)
-	for slot: RoomSlot in room.slots:
-		_sim.complete_site(slot.site)
+	SimFactory.furnish_hall(_sim, room)
+	SimFactory.finish_sites(_sim, room)
 	return room
 
 
 ## A kitchen with its stove built.
 func _kitchen(rect: Rect2i) -> Room:
 	var room: Room = _sim.place_room(_sim.config.rooms[SimFactory.KITCHEN], rect)
-	_sim.complete_site(room.slots[0].site)
+	_sim.complete_site(SimFactory.furnish_workshop(_sim, room).site)
 	return room
 
 

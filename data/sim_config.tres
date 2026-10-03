@@ -48,6 +48,14 @@
 [ext_resource type="Resource" path="res://data/rooms/storeroom.tres" id="46_storeroom"]
 [ext_resource type="Resource" path="res://data/rooms/quarry.tres" id="47_quarry"]
 
+[ext_resource type="Script" path="res://simulizer/defs/slot_def.gd" id="48_slot"]
+[ext_resource type="Resource" path="res://data/furniture/chair.tres" id="49_f_chair"]
+[ext_resource type="Resource" path="res://data/furniture/table.tres" id="50_f_table"]
+[ext_resource type="Resource" path="res://data/furniture/bed.tres" id="51_f_bed"]
+[ext_resource type="Resource" path="res://data/furniture/shelf.tres" id="52_f_shelf"]
+[ext_resource type="Resource" path="res://data/furniture/carpentry_bench.tres" id="53_f_bench"]
+[ext_resource type="Resource" path="res://data/furniture/stove.tres" id="54_f_stove"]
+[ext_resource type="Resource" path="res://data/furniture/still.tres" id="55_f_still"]
 [resource]
 script = ExtResource("1_config")
 ticks_per_second = 20
@@ -75,6 +83,7 @@ stair_build_ticks = 100
 floor_build_ticks = 80
 structure_item = ExtResource("19_i_wood")
 structure_item_count = 1
+furniture = Array[ExtResource("48_slot")]([ExtResource("53_f_bench"), ExtResource("49_f_chair"), ExtResource("50_f_table"), ExtResource("51_f_bed"), ExtResource("52_f_shelf"), ExtResource("54_f_stove"), ExtResource("55_f_still")])
 build_materials = Array[ExtResource("11_item")]([ExtResource("19_i_wood"), ExtResource("13_i_stone")])
 dump_offset = -7
 bad_mood_pace = 1.3

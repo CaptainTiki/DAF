@@ -2,31 +2,12 @@
 
 [ext_resource type="Script" path="res://simulizer/defs/room_def.gd" id="1_room"]
 [ext_resource type="Script" path="res://simulizer/defs/slot_def.gd" id="2_slot"]
-[ext_resource type="Resource" path="res://data/items/wood.tres" id="3_cost"]
-
-[sub_resource type="Resource" id="slot_station"]
-script = ExtResource("2_slot")
-kind = 1
-offset = 0
-width = 3
-item = ExtResource("3_cost")
-item_count = 4
-work_ticks = 240
-station_type = &"brewing"
-
-[sub_resource type="Resource" id="slot_output"]
-script = ExtResource("2_slot")
-kind = 2
-offset = 3
 
 [resource]
-script = ExtResource("1_room")
-id = &"brewery"
+script = ExtResource("1_room")id = &"brewery"
 display_name = "Brewery"
 category = &"workshop"
 color = Color(0.85, 0.65, 0.3, 1)
 min_width = 4
 min_height = 3
-margin = 0
-pattern_width = 4
-slots = Array[ExtResource("2_slot")]([SubResource("slot_station"), SubResource("slot_output")])
+slots = Array[ExtResource("2_slot")]([])

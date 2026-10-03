@@ -63,6 +63,12 @@ tooltip_text = "Plan a room. Drag over rock or dug space; dwarves dig it out and
 toggle_mode = true
 text = "Room"
 
+[node name="FurnitureButton" type="Button" parent="Bar"]
+layout_mode = 2
+tooltip_text = "Place furniture and work stations in rooms. Click to place, right-click to remove."
+toggle_mode = true
+text = "Furniture"
+
 [node name="RequestsButton" type="Button" parent="Bar"]
 layout_mode = 2
 toggle_mode = true
@@ -196,6 +202,21 @@ offset_bottom = -34.0
 grow_vertical = 0
 
 [node name="Row" type="HBoxContainer" parent="RoomPanel"]
+layout_mode = 2
+
+[node name="FurniturePanel" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 4.0
+offset_top = -68.0
+offset_right = 604.0
+offset_bottom = -34.0
+grow_vertical = 0
+
+[node name="Row" type="HBoxContainer" parent="FurniturePanel"]
 layout_mode = 2
 
 [node name="Title" type="Label" parent="RoomPanel/Row"]

@@ -307,6 +307,9 @@ func mark_removal(rect: Rect2i, marked: bool, kinds: int = ALL_STRUCTURES) -> in
 func can_complete_site(site: BuildSite, worker: Dwarf) -> bool:
 	if not site.removing:
 		return true
+	if site.slot != null:
+		# A chair or bed waits for whoever is using it to get up.
+		return site.slot.occupant == -1 or site.slot.occupant == worker.id
 	if _is_structure_in_use(site.tile, site.structure, worker):
 		return false
 	# A tower comes down from the top.
@@ -345,6 +348,28 @@ func place_room(def: RoomDef, rect: Rect2i) -> Room:
 		# Grown upward as well, in case a joined room had a higher ceiling.
 		marks_changed.emit(room.rect.grow_individual(0, Rooms.MAX_HEIGHT, 0, 0))
 	return room
+
+
+## The space a piece of furniture would take if placed with its left end on
+## this tile, or an empty rect if it can't go there.
+func furniture_fit(def: SlotDef, tile: Vector2i) -> Rect2i:
+	return rooms.furniture_fit(def, tile)
+
+
+## Puts a piece of furniture or a station in a room. It is only planned: a
+## dwarf brings the item (or builds the station) once there is one. Null if
+## it doesn't fit there.
+func place_furniture(def: SlotDef, tile: Vector2i) -> RoomSlot:
+	var slot: RoomSlot = rooms.place_furniture(self, def, tile)
+	if slot != null:
+		marks_changed.emit(Rect2i(tile, Vector2i(def.width + 1, 1)))
+	return slot
+
+
+## Takes away the furniture in the rect: plans at once, built pieces by a
+## dwarf. Returns how many pieces were affected.
+func remove_furniture(rect: Rect2i) -> int:
+	return rooms.remove_furniture(self, rect)
 
 
 ## Removes every room touching the rect. Returns how many were removed.
@@ -398,7 +423,7 @@ func complete_site(site: BuildSite) -> void:
 	if site.request != null:
 		logistics.close(site.request)
 	if site.slot != null:
-		rooms.slot_built(self, site.slot)
+		rooms.site_finished(self, site)
 		return
 	if site.removing:
 		_take_down(site)

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="SlotDef" format=3]
+
+[ext_resource type="Script" path="res://simulizer/defs/slot_def.gd" id="1_slot"][ext_resource type="Resource" path="res://data/items/wood.tres" id="2_item"]
+
+[resource]
+script = ExtResource("1_slot")
+id = &"carpentry_bench"
+display_name = "Carpentry bench"
+kind = 1
+rooms = Array[StringName]([&"carpentry"])
+width = 3
+item = ExtResource("2_item")
+item_count = 4
+work_ticks = 240
+station_type = &"carpentry"
+output = true

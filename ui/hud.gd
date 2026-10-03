@@ -7,6 +7,7 @@ extends Control
 signal tool_selected(tool: ToolController.Tool)
 ## The player picked a type of room to place.
 signal room_tool_selected(def: RoomDef)
+signal furniture_tool_selected(def: SlotDef)
 ## The player chose what stairs and floors are built from.
 signal build_material_selected(def: ItemDef)
 signal hire_requested
@@ -34,6 +35,9 @@ signal new_game_requested
 @onready var _room_button: Button = $Bar/RoomButton
 @onready var _room_panel: PanelContainer = $RoomPanel
 @onready var _room_row: HBoxContainer = $RoomPanel/Row
+@onready var _furniture_button: Button = $Bar/FurnitureButton
+@onready var _furniture_panel: PanelContainer = $FurniturePanel
+@onready var _furniture_row: HBoxContainer = $FurniturePanel/Row
 @onready var _requests_button: Button = $Bar/RequestsButton
 @onready var _orders_button: Button = $Bar/OrdersButton
 @onready var _orders_panel: PanelContainer = $OrdersPanel
@@ -92,8 +96,8 @@ func _ready() -> void:
 	}
 	for tool: ToolController.Tool in _tool_buttons:
 		_tool_buttons[tool].toggled.connect(_on_tool_toggled.bind(tool))
-	_pickers = {_build_button: _build_panel, _room_button: _room_panel}
-	_picker_titles = {_build_button: "Build", _room_button: "Room"}
+	_pickers = {_build_button: _build_panel, _room_button: _room_panel, _furniture_button: _furniture_panel}
+	_picker_titles = {_build_button: "Build", _room_button: "Room", _furniture_button: "Furniture"}
 	for button: Button in _pickers:
 		button.toggled.connect(_on_picker_toggled.bind(button))
 	$BuildPanel/Row/StairsOption.pressed.connect(_on_option_pressed.bind(_build_button, "Stairs", ToolController.Tool.STAIRS))
@@ -140,6 +144,22 @@ func bind(sim: Simulation) -> void:
 	remove.tooltip_text = "Drag over rooms to take them away. Furniture and goods are left on the floor."
 	remove.pressed.connect(_on_option_pressed.bind(_room_button, "Remove", ToolController.Tool.REMOVE_ROOM))
 	_room_row.add_child(remove)
+	# Furniture is wood only for now; the material is shown, not chosen.
+	var wood := Button.new()
+	wood.text = sim.config.structure_item.display_name if sim.config.structure_item != null else "Wood"
+	wood.disabled = true
+	_furniture_row.add_child(wood)
+	for def: SlotDef in sim.config.furniture:
+		var button := Button.new()
+		button.text = def.display_name
+		button.tooltip_text = _furniture_tooltip(sim, def)
+		button.pressed.connect(_on_furniture_pressed.bind(def))
+		_furniture_row.add_child(button)
+	var remove_furniture := Button.new()
+	remove_furniture.text = "Remove"
+	remove_furniture.tooltip_text = "Click or drag over furniture. Plans go at once; what is built is taken apart and carried to storage."
+	remove_furniture.pressed.connect(_on_option_pressed.bind(_furniture_button, "Remove", ToolController.Tool.REMOVE_FURNITURE))
+	_furniture_row.add_child(remove_furniture)
 	for type in sim.config.items.size():
 		if sim.stock_targets[type] <= 0:
 			continue
@@ -205,6 +225,7 @@ func _dock(at_top: bool) -> void:
 	_pin(_bar, at_top, BAR_MARGIN, BAR_HEIGHT)
 	var panel_gap: float = BAR_MARGIN + BAR_HEIGHT + BAR_MARGIN
 	_pin(_room_panel, at_top, panel_gap, SMALL_PANEL_HEIGHT)
+	_pin(_furniture_panel, at_top, panel_gap, SMALL_PANEL_HEIGHT)
 	_pin(_build_panel, at_top, panel_gap, SMALL_PANEL_HEIGHT)
 	_pin(_debug_panel, at_top, panel_gap, SMALL_PANEL_HEIGHT)
 	_pin(_requests_panel, at_top, panel_gap, REQUESTS_PANEL_HEIGHT)
@@ -282,6 +303,27 @@ func _show_material() -> void:
 	if _sim.config.build_materials.is_empty():
 		return
 	_material_button.text = _sim.config.build_materials[_material_index].display_name
+
+
+func _on_furniture_pressed(def: SlotDef) -> void:
+	_furniture_panel.visible = false
+	_furniture_button.text = "Furniture: %s" % def.display_name
+	furniture_tool_selected.emit(def)
+
+
+func _furniture_tooltip(sim: Simulation, def: SlotDef) -> String:
+	var where := PackedStringArray()
+	for room: RoomDef in sim.config.rooms:
+		if def.allowed_in(room.id):
+			where.append(room.display_name.to_lower())
+	var text: String = "Goes in: %s." % ", ".join(where)
+	if def.kind == SlotDef.Kind.STATION:
+		text += " Built in place from %d %s." % [def.item_count, def.item.display_name.to_lower()]
+	else:
+		text += " Made by the carpenter and carried in."
+	if def.highest_rise() > 0:
+		text += " Click the row on the wall it goes on."
+	return text + " Click to place, right-click to remove."
 
 
 func _on_room_type_pressed(def: RoomDef) -> void:

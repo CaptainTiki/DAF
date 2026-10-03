@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="SlotDef" format=3]
+
+[ext_resource type="Script" path="res://simulizer/defs/slot_def.gd" id="1_slot"][ext_resource type="Resource" path="res://data/items/shelf.tres" id="2_item"]
+
+[resource]
+script = ExtResource("1_slot")
+id = &"shelf"
+display_name = "Shelf"
+kind = 0
+rooms = Array[StringName]([&"storeroom"])
+rise = 1
+rise_max = 2
+storage = true
+item = ExtResource("2_item")

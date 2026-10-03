@@ -2,23 +2,12 @@
 
 [ext_resource type="Script" path="res://simulizer/defs/room_def.gd" id="1_room"]
 [ext_resource type="Script" path="res://simulizer/defs/slot_def.gd" id="2_slot"]
-[ext_resource type="Resource" path="res://data/items/bed.tres" id="3_bed"]
-
-[sub_resource type="Resource" id="slot_bed"]
-script = ExtResource("2_slot")
-kind = 0
-offset = 0
-item = ExtResource("3_bed")
-satisfies = &"sleep"
 
 [resource]
-script = ExtResource("1_room")
-id = &"bunk_room"
+script = ExtResource("1_room")id = &"bunk_room"
 display_name = "Bunk room"
 category = &"living"
 color = Color(0.35, 0.55, 0.9, 1)
 min_width = 2
 min_height = 3
-margin = 0
-pattern_width = 1
-slots = Array[ExtResource("2_slot")]([SubResource("slot_bed")])
+slots = Array[ExtResource("2_slot")]([])

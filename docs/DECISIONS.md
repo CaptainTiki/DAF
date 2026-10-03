@@ -4,6 +4,17 @@ Judgment calls made while building, newest milestone first. Each entry says what
 
 ## Milestone 02: Order chain
 
+### Furniture is placed, not laid out
+- Rooms no longer furnish themselves. A room is a zone with a type and minimums; the player places each chair, table, bunk, shelf, bench, stove and still with the Furniture tool (click to place, right-click or Remove to take away). The cosy-game loop is arranging the base, so the player does it.
+- Rooms keep laying out only what is the room itself: farm plots and a storeroom's floor spots. Those stay in `RoomDef.slots`; placeable pieces are `SimConfig.furniture`, the same `SlotDef` class with an id, a name and the room types it may go in (empty = any room). Chairs and tables are hall-only for now; dwarf's rooms and a tavern will widen that in data.
+- A table stands in front of a chair, so the two share a tile (two lanes per tile); everything else is one per tile. A station takes its width plus one tile for its output pile; clicking the pile removes the bench.
+- Removing a plan cancels it at once. Removing a built piece is a job: a dwarf takes it apart into its item on the spot and haulers put it in storage, which reuses the whole haul chain instead of a special "carry furniture" job.
+- Furniture can be placed in a room still planned in rock; it waits for its tile to be dug, as before.
+- Material is wood only until the mason exists; the picker shows it but doesn't offer a choice.
+
+### Off the list for good
+- No offline catch-up. Nobody should come back after work to a colony that died while they were away. The sim only runs while the window is open.
+
 ### Save and load
 - One save, `user://save.dat`, written with `store_var`. Saved every two minutes, on closing the window, and from the Debug panel. The game loads it on start if it is there; Load reloads the scene; New deletes it first.
 - Only what lasts is saved: the grid, items, piles, plants, sites with their requests, rooms and slots, dwarves (needs, mood quality, tempo, name) and the requests log. Work in progress is not: on loading every dwarf starts idle where they stood, drops what they carried at their feet, and jobs are rebuilt from the marks, sites, stations and plants. Simpler than saving claims and paths, and a half-second of hesitation after loading is invisible.

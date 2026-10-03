@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="SlotDef" format=3]
+
+[ext_resource type="Script" path="res://simulizer/defs/slot_def.gd" id="1_slot"][ext_resource type="Resource" path="res://data/items/bed.tres" id="2_item"]
+
+[resource]
+script = ExtResource("1_slot")
+id = &"bed"
+display_name = "Bunk"
+kind = 0
+rooms = Array[StringName]([&"bunk_room"])
+item = ExtResource("2_item")
+satisfies = &"sleep"

@@ -75,8 +75,11 @@ static func to_data(sim: Simulation) -> Dictionary:
 	for room: Room in sim.rooms.rooms:
 		var slots: Array = []
 		for slot: RoomSlot in room.slots:
+			var placed: bool = not room.def.slots.has(slot.def)
 			var slot_data: Dictionary = {
-				"def": room.def.slots.find(slot.def),
+				"placed": placed,
+				"def": slot.def.id if placed else room.def.slots.find(slot.def),
+				"output_slot": room.slots.find(slot.output_slot) if slot.output_slot != null else -1,
 				"tile": slot.tile,
 				"unit": slot.unit,
 				"built": slot.built,

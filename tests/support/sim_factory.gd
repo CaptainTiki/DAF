@@ -36,6 +36,14 @@ const QUARRY: int = 5
 const SLEEP: int = 0
 const FOOD: int = 1
 
+# Furniture indices in config.furniture.
+const BENCH: int = 0
+const CHAIR_PIECE: int = 1
+const TABLE_PIECE: int = 2
+const BED_PIECE: int = 3
+const SHELF_PIECE: int = 4
+const STOVE: int = 5
+
 
 static func make_config() -> SimConfig:
 	var dirt_ball := _item(&"dirt", "Dirt", 1, ItemDef.Shape.BALL)
@@ -84,7 +92,8 @@ static func make_config() -> SimConfig:
 	config.materials = [dirt, stone, iron]
 	config.items = [dirt_ball, stone_ball, wood, chair, table, bed, mushroom, meal, shelf, iron_ore]
 	config.recipes = [_recipe(wood, 1, chair, 10), _recipe(wood, 2, table, 10), _recipe(wood, 2, bed, 10), _recipe(mushroom, 2, meal, 10, &"cooking"), _recipe(wood, 1, shelf, 10)]
-	config.rooms = [make_carpentry(wood), make_hall(chair, table), make_bunk_room(bed), make_kitchen(wood), make_storeroom(shelf), make_quarry()]
+	config.rooms = [make_carpentry(), make_hall(), make_bunk_room(), make_kitchen(), make_storeroom(), make_quarry()]
+	config.furniture = [make_bench(wood), make_chair(chair), make_table(table), make_bed(bed), make_shelf(shelf), make_stove(wood)]
 	config.needs = [make_sleep_need(), make_food_need(meal, mushroom)]
 	config.world_gen = world
 	config.starting_item = null
@@ -132,56 +141,145 @@ static func place_dwarf(dwarf: Dwarf, tile: Vector2i) -> void:
 	dwarf.from_pos = tile
 
 
-## A workshop with a 3-wide bench (2 wood, built in place) and an output pile, every 4 tiles.
-static func make_carpentry(wood: ItemDef) -> RoomDef:
+static func make_carpentry() -> RoomDef:
+	return _room(&"carpentry", "Carpentry", 4)
+
+
+static func make_hall() -> RoomDef:
+	return _room(&"hall", "Hall", 3)
+
+
+static func make_bunk_room() -> RoomDef:
+	return _room(&"bunk_room", "Bunk room", 2)
+
+
+static func make_kitchen() -> RoomDef:
+	return _room(&"kitchen", "Kitchen", 4)
+
+
+## A 3-wide bench (2 wood, built in place) with an output pile to its right.
+static func make_bench(wood: ItemDef) -> SlotDef:
 	var bench := SlotDef.new()
+	bench.id = &"bench"
+	bench.display_name = "Bench"
 	bench.kind = SlotDef.Kind.STATION
+	bench.rooms = [&"carpentry"]
 	bench.width = 3
 	bench.item = wood
 	bench.item_count = 2
 	bench.work_ticks = 10
 	bench.station_type = &"carpentry"
-	var output := SlotDef.new()
-	output.kind = SlotDef.Kind.OUTPUT
-	output.offset = 3
-	var def := RoomDef.new()
-	def.id = &"carpentry"
-	def.display_name = "Carpentry"
-	def.min_width = 4
-	def.pattern_width = 4
-	def.slots = [bench, output]
+	bench.output = true
+	return bench
+
+
+## A 3-wide stove (2 wood) with an output pile, for the kitchen.
+static func make_stove(wood: ItemDef) -> SlotDef:
+	var stove: SlotDef = make_bench(wood)
+	stove.id = &"stove"
+	stove.display_name = "Stove"
+	stove.rooms = [&"kitchen"]
+	stove.station_type = &"cooking"
+	return stove
+
+
+## A dining seat, for the hall.
+static func make_chair(chair: ItemDef) -> SlotDef:
+	var def := SlotDef.new()
+	def.id = &"chair"
+	def.display_name = "Chair"
+	def.rooms = [&"hall"]
+	def.item = chair
+	def.seat = true
+	def.satisfies = &"dining"
 	return def
 
 
-## A hall with a chair and a table on every tile except one at each end.
-static func make_hall(chair: ItemDef, table: ItemDef) -> RoomDef:
-	var chair_slot := SlotDef.new()
-	chair_slot.item = chair
-	chair_slot.seat = true
-	chair_slot.satisfies = &"dining"
-	var table_slot := SlotDef.new()
-	table_slot.item = table
-	var def := RoomDef.new()
-	def.id = &"hall"
-	def.display_name = "Hall"
-	def.min_width = 3
-	def.margin = 1
-	def.pattern_width = 1
-	def.slots = [chair_slot, table_slot]
+static func make_table(table: ItemDef) -> SlotDef:
+	var def := SlotDef.new()
+	def.id = &"table"
+	def.display_name = "Table"
+	def.rooms = [&"hall"]
+	def.item = table
 	return def
 
 
-## A bunk on every tile. Bunks satisfy the sleep need.
-static func make_bunk_room(bed: ItemDef) -> RoomDef:
-	var bed_slot := SlotDef.new()
-	bed_slot.item = bed
-	bed_slot.satisfies = &"sleep"
+## A bunk, for the bunk room. Bunks satisfy the sleep need.
+static func make_bed(bed: ItemDef) -> SlotDef:
+	var def := SlotDef.new()
+	def.id = &"bed"
+	def.display_name = "Bunk"
+	def.rooms = [&"bunk_room"]
+	def.item = bed
+	def.satisfies = &"sleep"
+	return def
+
+
+## A shelf: storage on the wall of a storeroom, one or two tiles up.
+static func make_shelf(shelf: ItemDef) -> SlotDef:
+	var def := SlotDef.new()
+	def.id = &"shelf"
+	def.display_name = "Shelf"
+	def.rooms = [&"storeroom"]
+	def.item = shelf
+	def.rise = 1
+	def.rise_max = 2
+	def.storage = true
+	return def
+
+
+## Places a piece of furniture. Fails the test loudly if it doesn't fit.
+static func place(sim: Simulation, piece: int, tile: Vector2i) -> RoomSlot:
+	var slot: RoomSlot = sim.place_furniture(sim.config.furniture[piece], tile)
+	assert(slot != null, "furniture %d does not fit at %s" % [piece, tile])
+	return slot
+
+
+## Fills a hall the old automatic way: a chair and a table on every tile but
+## the ends. Returns the chairs.
+static func furnish_hall(sim: Simulation, room: Room) -> Array[RoomSlot]:
+	var chairs: Array[RoomSlot] = []
+	for x in range(room.rect.position.x + 1, room.rect.end.x - 1):
+		chairs.append(place(sim, CHAIR_PIECE, Vector2i(x, room.feet_row)))
+		place(sim, TABLE_PIECE, Vector2i(x, room.feet_row))
+	return chairs
+
+
+## A bunk on every tile of a bunk room.
+static func furnish_bunks(sim: Simulation, room: Room) -> Array[RoomSlot]:
+	var beds: Array[RoomSlot] = []
+	for x in range(room.rect.position.x, room.rect.end.x):
+		beds.append(place(sim, BED_PIECE, Vector2i(x, room.feet_row)))
+	return beds
+
+
+## A bench (or stove) at the left end of a workshop.
+static func furnish_workshop(sim: Simulation, room: Room) -> RoomSlot:
+	var piece: int = STOVE if room.def.id == &"kitchen" else BENCH
+	return place(sim, piece, Vector2i(room.rect.position.x, room.feet_row))
+
+
+## Two shelves above every tile of a storeroom.
+static func furnish_storeroom(sim: Simulation, room: Room) -> Array[RoomSlot]:
+	var shelves: Array[RoomSlot] = []
+	for x in range(room.rect.position.x, room.rect.end.x):
+		for rise in [1, 2]:
+			shelves.append(place(sim, SHELF_PIECE, Vector2i(x, room.feet_row - rise)))
+	return shelves
+
+
+## Finishes every pending site in a room, as if everything had been delivered and built.
+static func finish_sites(sim: Simulation, room: Room) -> void:
+	for slot: RoomSlot in room.slots.duplicate():
+		if slot.site != null:
+			sim.complete_site(slot.site)
+
+
+static func _room(id: StringName, display_name: String, min_width: int) -> RoomDef:
 	var def := RoomDef.new()
-	def.id = &"bunk_room"
-	def.display_name = "Bunk room"
-	def.min_width = 2
-	def.pattern_width = 1
-	def.slots = [bed_slot]
+	def.id = id
+	def.display_name = display_name
+	def.min_width = min_width
 	return def
 
 
@@ -227,24 +325,13 @@ static func make_food_need(meal: ItemDef, mushroom: ItemDef) -> NeedDef:
 	return need
 
 
-## A storeroom: a stockpile spot on every floor tile, with two shelves above
-## it that become storage once a carpenter-made shelf is set in place.
-static func make_storeroom(shelf: ItemDef) -> RoomDef:
+## A storeroom: a stockpile spot on every floor tile. Shelves are placed.
+static func make_storeroom() -> RoomDef:
 	var floor_spot := SlotDef.new()
 	floor_spot.kind = SlotDef.Kind.STOCKPILE
-	var slots: Array[SlotDef] = [floor_spot]
-	for rise in [1, 2]:
-		var shelf_slot := SlotDef.new()
-		shelf_slot.item = shelf
-		shelf_slot.rise = rise
-		shelf_slot.storage = true
-		slots.append(shelf_slot)
-	var def := RoomDef.new()
-	def.id = &"storeroom"
-	def.display_name = "Storeroom"
-	def.min_width = 2
+	var def: RoomDef = _room(&"storeroom", "Storeroom", 2)
 	def.pattern_width = 1
-	def.slots = slots
+	def.slots = [floor_spot]
 	return def
 
 
@@ -257,14 +344,6 @@ static func make_quarry() -> RoomDef:
 	def.min_width = 2
 	return def
 
-
-## A kitchen: a 3-wide stove (2 wood, built in place) and an output pile.
-static func make_kitchen(wood: ItemDef) -> RoomDef:
-	var def: RoomDef = make_carpentry(wood)
-	def.id = &"kitchen"
-	def.display_name = "Kitchen"
-	(def.slots[0] as SlotDef).station_type = &"cooking"
-	return def
 
 
 static func _item(id: StringName, display_name: String, size: int, shape: ItemDef.Shape) -> ItemDef:

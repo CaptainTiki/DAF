@@ -45,6 +45,7 @@ func _ready() -> void:
 
 	_hud.tool_selected.connect(_tools.set_tool)
 	_hud.room_tool_selected.connect(_tools.set_room_tool)
+	_hud.furniture_tool_selected.connect(_tools.set_furniture_tool)
 	_hud.build_material_selected.connect(_tools.set_build_material)
 	_hud.stock_target_changed.connect(_sim.set_stock_target)
 	_hud.save_requested.connect(_save)
