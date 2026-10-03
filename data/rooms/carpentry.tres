@@ -11,7 +11,7 @@ offset = 0
 width = 3
 item = ExtResource("3_wood")
 item_count = 4
-work_ticks = 120
+work_ticks = 240
 station_type = &"carpentry"
 
 [sub_resource type="Resource" id="slot_output"]

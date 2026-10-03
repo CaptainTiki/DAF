@@ -59,7 +59,7 @@ text = "Build"
 
 [node name="RoomButton" type="Button" parent="Bar"]
 layout_mode = 2
-tooltip_text = "Give a stretch of dug floor a purpose."
+tooltip_text = "Plan a room. Drag over rock or dug space; dwarves dig it out and furnish it."
 toggle_mode = true
 text = "Room"
 
@@ -157,7 +157,7 @@ text = "Wood"
 
 [node name="StairsOption" type="Button" parent="BuildPanel/Row"]
 layout_mode = 2
-tooltip_text = "Drag diagonally. Stairs can run through rock."
+tooltip_text = "Drag diagonally for a flight, or straight down for a zig-zag stairwell. Stairs can run through rock."
 text = "Stairs"
 
 [node name="FloorOption" type="Button" parent="BuildPanel/Row"]

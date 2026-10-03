@@ -3,7 +3,7 @@ extends Resource
 ## One type of thing that can be carried and stored: a resource ball, a log,
 ## a piece of furniture.
 
-enum Shape { BALL, LOG, CHAIR, TABLE, BED }
+enum Shape { BALL, LOG, CHAIR, TABLE, BED, SHELF }
 
 @export var id: StringName
 @export var display_name: String

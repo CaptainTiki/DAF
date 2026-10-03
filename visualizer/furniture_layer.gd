@@ -51,7 +51,7 @@ func _add_slot(slot: RoomSlot) -> void:
 	match slot.def.kind:
 		SlotDef.Kind.FURNITURE:
 			var def: ItemDef = slot.def.item
-			var lane: float = ViewSpace.LANE_SEAT if slot.def.seat else ViewSpace.LANE_TABLE
+			var lane: float = ViewSpace.LANE_SEAT if slot.def.seat or slot.def.storage else ViewSpace.LANE_TABLE
 			var base: Vector3 = ViewSpace.tile_floor(slot.tile.x, slot.tile.y, lane)
 			GreyboxShapes.add_item(batch, def.shape, base, Color(def.color, alpha))
 		SlotDef.Kind.STATION:

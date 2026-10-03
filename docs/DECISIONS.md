@@ -54,6 +54,16 @@ Judgment calls made while building, newest milestone first. Each entry says what
 - A tower only goes straight up from a floor. It doesn't bridge gaps or rescue a trapped dwarf; those stay as stairs and floors the player places.
 - There is no player-placed scaffolding yet.
 
+### Playing idle: the room tool is a planner
+- The game felt like constant input: mark tiles, wait, place a room, mark storage. One click bought seconds of dwarf time. Now one drag buys minutes.
+- The Room tool works on rock. A room dragged into the mountain is dug out by the dwarves and then furnished, in one order. The drag's bottom row is the floor; it grows upward to the room's minimum height.
+- The Dig tool never touches tiles inside a room, marking or unmarking. The room owns its digging; removing the room cancels it.
+- Furniture, stations, plants and storage spots in a planned room wait until their tile is dug out. Items can be delivered early and sit at the site.
+- Storeroom: a room type where every floor tile is a storage spot straight away, with two shelves above it that the carpenter makes (1 wood each). A built shelf is one more storage spot, one and two tiles up, within reach from the floor beside it. The Stockpile tool stays for marking bare floor by hand.
+- Stairs: a mostly vertical drag makes a zig-zag stairwell two columns wide, as deep as the drag. A diagonal drag still makes a straight flight.
+- Everything takes longer: digging three times, crafting and building twice, structures twice. The base now takes an evening to come together.
+- Not done, by choice: dwarves don't dig or expand on their own, and don't ask for permission to. The player sets every room. Standing orders for ore, stone and wood are next.
+
 ### Dirt and stone
 - Dirt is waste (`dump` on the item). It is never stored. Dwarves carry it up to a spoil heap on the surface, 7 tiles left of where they arrived, and it is gone. The heap grows as a visible mound.
 - If there is no way up to the heap, dirt stays where it fell and nobody complains.

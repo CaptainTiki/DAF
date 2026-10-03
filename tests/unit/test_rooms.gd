@@ -41,8 +41,8 @@ func _built_count(room: Room) -> int:
 
 # --- Placing ---
 
-func test_room_snaps_to_the_floor_and_ceiling() -> void:
-	# Dragged over just the floor row; the room takes the open space above it.
+func test_room_grows_up_to_its_minimum_height_from_the_dragged_row() -> void:
+	# Dragged over just the floor row; the room takes the space above it.
 	var room: Room = _sim.place_room(_hall, Rect2i(8, 6, 5, 1))
 	assert_not_null(room)
 	assert_eq(room.rect, Rect2i(8, 4, 5, 3))
@@ -51,25 +51,132 @@ func test_room_snaps_to_the_floor_and_ceiling() -> void:
 	assert_eq(_sim.rooms.room_at(Vector2i(10, 5)), room)
 
 
-func test_dragging_over_the_ground_still_finds_the_floor() -> void:
-	assert_true(_sim.can_place_room(_hall, Rect2i(8, 7, 5, 1)))
-
-
 func test_room_needs_its_minimum_width() -> void:
 	assert_false(_sim.can_place_room(_hall, Rect2i(8, 6, 2, 1)), "hall needs 3")
 	assert_false(_sim.can_place_room(_carpentry, Rect2i(8, 6, 3, 1)), "carpentry needs 4")
 	assert_true(_sim.can_place_room(_carpentry, Rect2i(8, 6, 4, 1)))
 
 
-func test_room_needs_its_minimum_height() -> void:
-	var tall := SimFactory.make_hall(_sim.config.items[SimFactory.CHAIR], _sim.config.items[SimFactory.TABLE])
-	tall.min_height = 4
-	assert_false(_sim.can_place_room(tall, Rect2i(8, 6, 5, 1)), "the ceiling is 3 up")
-
-
-func test_room_cannot_go_on_rock_sky_or_another_room() -> void:
-	assert_false(_sim.can_place_room(_hall, Rect2i(8, 9, 5, 1)), "solid rock")
+func test_room_cannot_go_in_the_sky_or_over_nothing() -> void:
 	assert_false(_sim.can_place_room(_hall, Rect2i(8, 2, 5, 1)), "open sky")
+	# A room whose floor row has open space under it has nothing to stand on.
+	SimFactory.carve(_sim, Rect2i(8, 8, 5, 3))
+	assert_false(_sim.can_place_room(_hall, Rect2i(8, 7, 5, 1)), "the row below is open")
+	assert_true(_sim.can_place_room(_hall, Rect2i(8, 10, 5, 1)), "down on the real floor is fine")
+
+
+# --- Planning in rock ---
+
+func test_room_planned_in_rock_marks_its_digging() -> void:
+	var room: Room = _sim.place_room(_hall, Rect2i(8, 12, 5, 2))
+	assert_not_null(room)
+	assert_eq(room.rect, Rect2i(8, 11, 5, 3), "grown upward to 3 high")
+	for y in range(11, 14):
+		for x in range(8, 13):
+			assert_true(_sim.grid.is_dig_marked(x, y), "tile %d,%d marked" % [x, y])
+	assert_eq(_sim.board.unclaimed_of(Job.Kind.DIG), 15)
+	assert_true(_sim.grid.is_solid(10, 14), "the floor under it stays")
+
+
+func test_dig_tool_leaves_rooms_alone() -> void:
+	_sim.place_room(_hall, Rect2i(8, 12, 5, 2))
+	_sim.mark_dig(Rect2i(8, 11, 5, 3), false)
+	assert_true(_sim.grid.is_dig_marked(10, 12), "the room's own digging can't be unmarked with the dig tool")
+	assert_eq(_sim.mark_dig(Rect2i(6, 11, 10, 3), true), 15, "only the 5 columns outside the room")
+	assert_false(_sim.grid.is_dig_marked(7, 12) and _sim.rooms.room_at(Vector2i(7, 12)) != null)
+
+
+func test_furniture_waits_until_the_room_is_dug_out() -> void:
+	var room: Room = _sim.place_room(_hall, Rect2i(8, 12, 5, 2))
+	var chair: RoomSlot = _slots_of(room, SimFactory.CHAIR)[0]
+	# Deliver the chair while its tile is still rock: it must not be set up in there.
+	chair.site.request.delivered = 1
+	SimFactory.run(_sim, 30)
+	assert_false(chair.built)
+	SimFactory.carve(_sim, room.rect)
+	SimFactory.run(_sim, 30)
+	assert_true(chair.built, "set up once the tile is open")
+
+
+func test_removing_a_planned_room_cancels_its_digging() -> void:
+	var room: Room = _sim.place_room(_hall, Rect2i(8, 12, 5, 2))
+	_sim.remove_rooms(room.rect)
+	assert_eq(_sim.board.unclaimed_of(Job.Kind.DIG), 0)
+	assert_false(_sim.grid.is_dig_marked(10, 12))
+
+
+func test_dwarves_dig_out_a_planned_room_and_furnish_it() -> void:
+	# A hall planned in the rock beside the carved strip, with wood and a bench to hand.
+	# The test world is widened so there is rock to the right of the strip.
+	var config := SimFactory.make_config()
+	config.world_gen.width = 40
+	_sim = SimFactory.make_sim(config)
+	SimFactory.carve(_sim, Rect2i(1, 4, 22, 3))
+	for i in 2:
+		SimFactory.place_dwarf(_sim.hire_dwarf(), Vector2i(10 + i, 6))
+	_supply(SimFactory.WOOD, 11, Vector2i(7, 6))
+	_sim.place_room(_sim.config.rooms[SimFactory.CARPENTRY], Rect2i(1, 6, 4, 1))
+	var hall: Room = _sim.place_room(_sim.config.rooms[SimFactory.HALL], Rect2i(23, 6, 5, 1))
+	assert_not_null(hall)
+	assert_true(_sim.grid.is_solid(24, 5), "in rock to start with")
+	SimFactory.run(_sim, 8000)
+	for y in range(4, 7):
+		for x in range(23, 28):
+			assert_true(_sim.grid.is_open(x, y), "tile %d,%d dug" % [x, y])
+	assert_eq(_built_count(hall), 6)
+
+
+# --- Storerooms ---
+
+func test_storeroom_floor_is_storage_at_once_and_shelves_once_built() -> void:
+	var storeroom: RoomDef = _sim.config.rooms[SimFactory.STOREROOM]
+	var room: Room = _sim.place_room(storeroom, Rect2i(8, 6, 3, 1))
+	assert_eq(room.slots.size(), 9, "a floor spot and two shelves per tile")
+	SimFactory.run(_sim, 25)
+	assert_eq(_sim.storage.tile_count(), 3, "the floor spots")
+	assert_true(_sim.grid.is_stockpile(9, 6))
+	assert_false(_sim.grid.is_stockpile(9, 5), "no shelf yet")
+	for slot: RoomSlot in room.slots:
+		if slot.def.rise == 1 and slot.tile.x == 9:
+			_sim.complete_site(slot.site)
+	assert_true(_sim.grid.is_stockpile(9, 5), "the shelf is storage")
+	assert_eq(_sim.storage.tile_count(), 4)
+	assert_eq(_sim.logistics.open_count_of(SimFactory.SHELF), 5, "the other shelves are still asked for")
+
+
+func test_goods_are_stored_on_shelves() -> void:
+	var dwarf := _sim.hire_dwarf()
+	SimFactory.place_dwarf(dwarf, Vector2i(12, 6))
+	var room: Room = _sim.place_room(_sim.config.rooms[SimFactory.STOREROOM], Rect2i(8, 6, 1, 1))
+	# Width 1 is below the minimum; use 2.
+	assert_null(room)
+	room = _sim.place_room(_sim.config.rooms[SimFactory.STOREROOM], Rect2i(8, 6, 2, 1))
+	for slot: RoomSlot in room.slots:
+		if slot.site != null:
+			_sim.complete_site(slot.site)
+	SimFactory.run(_sim, 25)
+	assert_eq(_sim.storage.tile_count(), 6)
+	for i in 25:
+		_sim.spawn_item(SimFactory.STONE_BALL, Vector2i(14, 6))
+	SimFactory.run(_sim, 4000)
+	assert_eq(_sim.storage.totals[SimFactory.STONE_BALL], 25)
+	var on_shelves: int = 0
+	for pile: Pile in _sim.storage.piles:
+		if pile.kind == Pile.Kind.STOCKPILE and pile.tile.y < 6:
+			on_shelves += pile.count_of(SimFactory.STONE_BALL)
+	assert_gt(on_shelves, 0, "some went up on the shelves")
+
+
+func test_removing_a_storeroom_spills_the_shelves() -> void:
+	var room: Room = _sim.place_room(_sim.config.rooms[SimFactory.STOREROOM], Rect2i(8, 6, 2, 1))
+	for slot: RoomSlot in room.slots:
+		if slot.site != null:
+			_sim.complete_site(slot.site)
+	SimFactory.run(_sim, 25)
+	_sim.remove_rooms(room.rect)
+	assert_eq(_sim.storage.tile_count(), 0)
+	assert_false(_sim.grid.is_stockpile(8, 5))
+	assert_eq(_sim.items.size(), 4, "four shelves on the floor")
 	_sim.place_room(_hall, Rect2i(8, 6, 5, 1))
 	assert_false(_sim.can_place_room(_carpentry, Rect2i(11, 6, 5, 1)), "overlaps a room of another type")
 	assert_true(_sim.can_place_room(_carpentry, Rect2i(13, 6, 5, 1)), "next to it is fine")

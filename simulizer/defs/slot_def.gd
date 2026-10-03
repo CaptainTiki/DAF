@@ -11,6 +11,8 @@ enum Kind {
 	OUTPUT,
 	## A plot where a plant grows.
 	PLANT,
+	## A spot on the floor where goods are stored.
+	STOCKPILE,
 }
 
 @export var kind: Kind = Kind.FURNITURE
@@ -18,6 +20,10 @@ enum Kind {
 @export var offset: int = 0
 ## Floor tiles this takes up.
 @export var width: int = 1
+## Tiles above the floor. 0 is on the floor; a shelf is 1 or 2 up.
+@export var rise: int = 0
+## FURNITURE: once built, goods can be stored on it (a shelf).
+@export var storage: bool = false
 ## FURNITURE: the item to install. STATION: the material it is built from.
 @export var item: ItemDef
 @export var item_count: int = 1

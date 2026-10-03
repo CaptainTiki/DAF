@@ -75,6 +75,7 @@ func test_farm_room_grows_plants_and_loses_them_when_removed() -> void:
 	farm.pattern_width = 2
 	farm.slots = [plot]
 	var room: Room = _sim.place_room(farm, Rect2i(9, 6, 6, 1))
+	SimFactory.run(_sim, 25)
 	assert_eq(_sim.plants.plants.size(), 3, "a plot every 2 tiles")
 	assert_eq(room.slots[1].plant.tile, Vector2i(11, 6))
 	_sim.remove_rooms(room.rect)

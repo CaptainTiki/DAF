@@ -158,12 +158,24 @@ func hire_dwarf() -> Dwarf:
 	return dwarf
 
 
-## Marks or unmarks every solid tile in the rect for digging. Returns how many changed.
+## Marks or unmarks every solid tile in the rect for digging. Tiles inside a
+## room are left to the room: it plans its own digging. Returns how many changed.
 func mark_dig(rect: Rect2i, marked: bool) -> int:
+	return _mark_dig(rect, marked, false)
+
+
+## The room tool's own digging: marks the rock inside a room's rect.
+func plan_dig(rect: Rect2i) -> int:
+	return _mark_dig(rect, true, true)
+
+
+func _mark_dig(rect: Rect2i, marked: bool, inside_rooms: bool) -> int:
 	var changed: int = 0
 	for y in range(rect.position.y, rect.end.y):
 		for x in range(rect.position.x, rect.end.x):
 			if not grid.in_bounds(x, y) or not grid.is_solid(x, y) or grid.is_dig_marked(x, y) == marked:
+				continue
+			if not inside_rooms and grid.has_flag(x, y, TileGrid.FLAG_ROOM):
 				continue
 			grid.set_flag(x, y, TileGrid.FLAG_DIG_MARK, marked)
 			var tile := Vector2i(x, y)
@@ -297,6 +309,9 @@ func can_complete_site(site: BuildSite, worker: Dwarf) -> bool:
 func is_site_workable(site: BuildSite) -> bool:
 	if site.structure == TileGrid.STRUCTURE_SCAFFOLD and not site.removing:
 		return grid.is_ground(site.tile.x, site.tile.y + 1)
+	if site.slot != null:
+		# A room planned in rock: its furniture waits until the tile is dug out.
+		return rooms.is_slot_ready(grid, site.slot)
 	return true
 
 
@@ -612,7 +627,7 @@ func _tick_items() -> void:
 func _tick_sites() -> void:
 	for i in range(sites.size() - 1, -1, -1):
 		var site: BuildSite = sites[i]
-		if site.work_ticks == 0 and site.is_ready():
+		if site.work_ticks == 0 and site.is_ready() and is_site_workable(site):
 			complete_site(site)
 
 
@@ -620,6 +635,21 @@ func _unsettle(item: Item) -> void:
 	item.settled = false
 	if not _unsettled.has(item):
 		_unsettled.append(item)
+
+
+## Makes a tile a storage spot. Used by storerooms; the Stockpile tool uses mark_stockpile.
+func add_stockpile_tile(tile: Vector2i) -> void:
+	if grid.is_stockpile(tile.x, tile.y):
+		return
+	grid.set_flag(tile.x, tile.y, TileGrid.FLAG_STOCKPILE, true)
+	storage.add_tile(tile)
+	marks_changed.emit(Rect2i(tile, Vector2i.ONE))
+
+
+func remove_stockpile_tile(tile: Vector2i) -> void:
+	if not grid.is_stockpile(tile.x, tile.y):
+		return
+	_remove_stockpile_tile(tile)
 
 
 func _remove_stockpile_tile(tile: Vector2i) -> void:

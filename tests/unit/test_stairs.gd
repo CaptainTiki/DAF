@@ -299,3 +299,29 @@ func test_dwarf_at_home_is_not_trapped() -> void:
 	assert_false(_dwarf.trapped)
 	assert_eq(_dwarf.speech, "")
 	assert_eq(_sim.requests.entries.size(), 0)
+
+# --- Stair layout from a drag ---
+
+func test_diagonal_drag_makes_a_straight_flight() -> void:
+	assert_eq(StairLayout.tiles(Vector2i(5, 5), Vector2i(8, 8)), [Vector2i(5, 5), Vector2i(6, 6), Vector2i(7, 7), Vector2i(8, 8)] as Array[Vector2i])
+	assert_eq(StairLayout.tiles(Vector2i(5, 5), Vector2i(3, 7)), [Vector2i(5, 5), Vector2i(4, 6), Vector2i(3, 7)] as Array[Vector2i])
+	assert_eq(StairLayout.tiles(Vector2i(5, 5), Vector2i(5, 5)), [Vector2i(5, 5)] as Array[Vector2i])
+
+
+func test_vertical_drag_makes_a_zig_zag_stairwell_two_wide() -> void:
+	var tiles := StairLayout.tiles(Vector2i(5, 5), Vector2i(5, 10))
+	assert_eq(tiles, [Vector2i(5, 5), Vector2i(6, 6), Vector2i(5, 7), Vector2i(6, 8), Vector2i(5, 9), Vector2i(6, 10)] as Array[Vector2i])
+	# Every step is one tile over and one down, so dwarves can walk it.
+	for i in range(1, tiles.size()):
+		assert_eq(absi(tiles[i].x - tiles[i - 1].x), 1)
+		assert_eq(tiles[i].y - tiles[i - 1].y, 1)
+	# Leaning the drag to the left puts the zig-zag on that side.
+	assert_eq(StairLayout.tiles(Vector2i(5, 5), Vector2i(4, 8))[1], Vector2i(4, 6))
+
+
+func test_stairwell_from_a_drag_is_walkable_through_rock() -> void:
+	var tiles := StairLayout.tiles(Vector2i(13, 7), Vector2i(13, 11))
+	for tile: Vector2i in tiles:
+		_sim.grid.add_structure(tile.x, tile.y, TileGrid.STRUCTURE_STAIR)
+	var map := Pathfinder.flood(_sim.grid, Vector2i(12, 6))
+	assert_true(map.is_reachable(tiles[tiles.size() - 1].x, tiles[tiles.size() - 1].y), "bottom of the well")

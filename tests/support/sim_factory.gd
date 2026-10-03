@@ -20,12 +20,14 @@ const TABLE: int = 4
 const BED: int = 5
 const MUSHROOM: int = 6
 const MEAL: int = 7
+const SHELF: int = 8
 
 # Room type indices in config.rooms.
 const CARPENTRY: int = 0
 const HALL: int = 1
 const BUNK_ROOM: int = 2
 const KITCHEN: int = 3
+const STOREROOM: int = 4
 
 # Need indices.
 const SLEEP: int = 0
@@ -42,6 +44,7 @@ static func make_config() -> SimConfig:
 	var mushroom := _item(&"mushroom", "Mushroom", 1, ItemDef.Shape.BALL)
 	var meal := _item(&"meal", "Meal", 1, ItemDef.Shape.BALL)
 	meal.quality = 1
+	var shelf := _item(&"shelf", "Shelf", 2, ItemDef.Shape.SHELF)
 
 	var dirt := MaterialDef.new()
 	dirt.id = &"dirt"
@@ -68,9 +71,9 @@ static func make_config() -> SimConfig:
 
 	var config := SimConfig.new()
 	config.materials = [dirt, stone]
-	config.items = [dirt_ball, stone_ball, wood, chair, table, bed, mushroom, meal]
-	config.recipes = [_recipe(wood, 1, chair, 10), _recipe(wood, 2, table, 10), _recipe(wood, 2, bed, 10), _recipe(mushroom, 2, meal, 10, &"cooking")]
-	config.rooms = [make_carpentry(wood), make_hall(chair, table), make_bunk_room(bed), make_kitchen(wood)]
+	config.items = [dirt_ball, stone_ball, wood, chair, table, bed, mushroom, meal, shelf]
+	config.recipes = [_recipe(wood, 1, chair, 10), _recipe(wood, 2, table, 10), _recipe(wood, 2, bed, 10), _recipe(mushroom, 2, meal, 10, &"cooking"), _recipe(wood, 1, shelf, 10)]
+	config.rooms = [make_carpentry(wood), make_hall(chair, table), make_bunk_room(bed), make_kitchen(wood), make_storeroom(shelf)]
 	config.needs = [make_sleep_need(), make_food_need(meal, mushroom)]
 	config.world_gen = world
 	config.starting_item = null
@@ -211,6 +214,27 @@ static func make_food_need(meal: ItemDef, mushroom: ItemDef) -> NeedDef:
 	need.no_item_message = "nothing to eat."
 	need.no_provider_message = "nowhere to eat. Eating on the floor."
 	return need
+
+
+## A storeroom: a stockpile spot on every floor tile, with two shelves above
+## it that become storage once a carpenter-made shelf is set in place.
+static func make_storeroom(shelf: ItemDef) -> RoomDef:
+	var floor_spot := SlotDef.new()
+	floor_spot.kind = SlotDef.Kind.STOCKPILE
+	var slots: Array[SlotDef] = [floor_spot]
+	for rise in [1, 2]:
+		var shelf_slot := SlotDef.new()
+		shelf_slot.item = shelf
+		shelf_slot.rise = rise
+		shelf_slot.storage = true
+		slots.append(shelf_slot)
+	var def := RoomDef.new()
+	def.id = &"storeroom"
+	def.display_name = "Storeroom"
+	def.min_width = 2
+	def.pattern_width = 1
+	def.slots = slots
+	return def
 
 
 ## A kitchen: a 3-wide stove (2 wood, built in place) and an output pile.

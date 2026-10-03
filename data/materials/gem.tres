@@ -8,5 +8,5 @@ script = ExtResource("1_def")
 id = &"gem"
 display_name = "Gem"
 color = Color(0.82, 0.28, 0.86, 1)
-dig_ticks = 160
+dig_ticks = 480
 drop = ExtResource("2_drop")

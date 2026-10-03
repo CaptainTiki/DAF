@@ -145,15 +145,10 @@ func _cancel_drag() -> void:
 	_view.hide_selection()
 
 
-## The drag snapped to a 45 degree line from where it started: one tile over,
-## one tile down (or up) per step, which is the slope dwarves can walk.
+## The stairs a drag makes: a straight flight for a diagonal drag, a zig-zag
+## stairwell for a vertical one.
 func _drag_diagonal() -> Array[Vector2i]:
-	var delta: Vector2i = _drag_end - _drag_start
-	var step := Vector2i(1 if delta.x >= 0 else -1, 1 if delta.y >= 0 else -1)
-	var tiles: Array[Vector2i] = []
-	for i in maxi(absi(delta.x), absi(delta.y)) + 1:
-		tiles.append(_drag_start + step * i)
-	return tiles
+	return StairLayout.tiles(_drag_start, _drag_end)
 
 
 func _drag_rect() -> Rect2i:

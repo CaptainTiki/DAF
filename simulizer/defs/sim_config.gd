@@ -55,11 +55,11 @@ extends Resource
 ## Ticks to build one tile of floor once its materials are there.
 @export var floor_build_ticks: int = 40
 ## Ticks to put up one tile of scaffolding once its materials are there.
-@export var scaffold_build_ticks: int = 30
+@export var scaffold_build_ticks: int = 60
 ## The tallest tower dwarves will put up by themselves, in tiles.
 @export var scaffold_max_height: int = 8
 ## Ticks to take down one tile of stairs or floor.
-@export var remove_ticks: int = 30
+@export var remove_ticks: int = 60
 ## What a tile of stairs, floor or scaffolding is made of unless the player
 ## picks something else. Null makes structures free.
 @export var structure_item: ItemDef

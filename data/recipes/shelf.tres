@@ -2,12 +2,12 @@
 
 [ext_resource type="Script" path="res://simulizer/defs/recipe_def.gd" id="1_def"]
 [ext_resource type="Resource" path="res://data/items/wood.tres" id="2_wood"]
-[ext_resource type="Resource" path="res://data/items/bed.tres" id="3_output"]
+[ext_resource type="Resource" path="res://data/items/shelf.tres" id="3_output"]
 
 [resource]
 script = ExtResource("1_def")
 station_type = &"carpentry"
 input = ExtResource("2_wood")
-input_count = 2
+input_count = 1
 output = ExtResource("3_output")
-work_ticks = 480
+work_ticks = 240

@@ -8,6 +8,8 @@ signal changed
 
 ## Rooms are never taller than this, however high the ceiling.
 const MAX_HEIGHT: int = 8
+## How often slots in planned rooms are checked for having been dug out, in ticks.
+const ACTIVATE_INTERVAL: int = 20
 
 var rooms: Array[Room] = []
 var stations: Array[Station] = []
@@ -22,41 +24,40 @@ func room_at(tile: Vector2i) -> Room:
 	return _room_at.get(tile)
 
 
-## The room a drag would make: the rect snapped to the floor it touches and
-## the open space above it, widened to take in any room of the same type that
-## it touches or overlaps. An empty rect means a room can't go there.
+## The room a drag would make: the drag itself, at least min_height tall
+## (grown upward), widened to take in any room of the same type it touches.
+## Rock inside it is fine; it gets dug out. An empty rect means a room can't
+## go there: open sky, nothing under its floor, or another room in the way.
 func fit(grid: TileGrid, def: RoomDef, rect: Rect2i) -> Rect2i:
 	var left: int = maxi(rect.position.x, 0)
 	var right: int = mini(rect.end.x, grid.width) - 1
 	if right < left:
 		return Rect2i()
-	var feet: int = -1
-	for row in range(rect.end.y - 1, rect.position.y - 2, -1):
-		if _is_floor_spot(grid, left, row):
-			feet = row
-			break
-	if feet < 0:
-		return Rect2i()
+	var feet: int = rect.end.y - 1
+	var height: int = clampi(rect.size.y, def.min_height, MAX_HEIGHT)
 	var joined: Array[Room] = _rooms_to_join(def, feet, left, right)
 	for room: Room in joined:
 		left = mini(left, room.rect.position.x)
 		right = maxi(right, room.rect.end.x - 1)
-	var height: int = MAX_HEIGHT
+		height = maxi(height, room.rect.size.y)
+	var top: int = feet - height + 1
+	if top < 0 or not grid.in_bounds(left, feet):
+		return Rect2i()
 	for x in range(left, right + 1):
-		if not _is_floor_spot(grid, x, feet) or grid.is_stockpile(x, feet):
+		if not grid.is_ground(x, feet + 1):
 			return Rect2i()
 		var existing: Room = _room_at.get(Vector2i(x, feet))
 		if existing != null and not joined.has(existing):
 			return Rect2i()
-		var open: int = 0
-		while open < height and _is_indoors(grid, x, feet - open):
-			open += 1
-		height = open
+		if existing == null and grid.is_stockpile(x, feet):
+			return Rect2i()
+		for y in range(top, feet + 1):
+			if grid.material_at(x, y) == TileGrid.NO_MATERIAL:
+				return Rect2i()
 	var width: int = right - left + 1
-	if width < def.min_width or height < def.min_height:
+	if width < def.min_width:
 		return Rect2i()
-	return Rect2i(left, feet - height + 1, width, height)
-
+	return Rect2i(left, top, width, height)
 
 ## Makes a room, or extends the rooms of the same type that the drag touches
 ## into one. What is already in place stays where it is.
@@ -89,6 +90,8 @@ func place(sim: Simulation, def: RoomDef, rect: Rect2i) -> Room:
 
 	rooms.append(room)
 	_set_tiles(sim, fitted, room)
+	# Whatever is still rock inside the room gets dug out first.
+	sim.plan_dig(fitted)
 	_lay_out(sim, room, old_slots)
 	# Whatever no longer has a place in the new layout drops to the floor.
 	for slot: RoomSlot in old_slots:
@@ -109,6 +112,7 @@ func remove(sim: Simulation, room: Room) -> void:
 	for slot: RoomSlot in room.slots:
 		_clear_slot(sim, slot)
 	_set_tiles(sim, room.rect, null)
+	sim.mark_dig(room.rect, false)
 	_provider_counts = null
 	changed.emit()
 
@@ -121,10 +125,37 @@ func rooms_in(rect: Rect2i) -> Array[Room]:
 	return found
 
 
+## A slot's tile is ready to be used once it is dug out, with something under
+## it if it is on the floor.
+func is_slot_ready(grid: TileGrid, slot: RoomSlot) -> bool:
+	if not grid.is_open(slot.tile.x, slot.tile.y):
+		return false
+	return slot.def.rise > 0 or grid.is_ground(slot.tile.x, slot.tile.y + 1)
+
+
+## Plants and stockpile spots come into being once their tile is dug out.
+func _activate_slots(sim: Simulation) -> void:
+	for room: Room in rooms:
+		for slot: RoomSlot in room.slots:
+			if slot.built or slot.site != null or not is_slot_ready(sim.grid, slot):
+				continue
+			match slot.def.kind:
+				SlotDef.Kind.PLANT:
+					slot.plant = sim.plants.add(slot.def.plant, slot.tile, 0, sim.roll_growth_speed(slot.def.plant))
+					slot.built = true
+				SlotDef.Kind.STOCKPILE:
+					sim.add_stockpile_tile(slot.tile)
+					slot.built = true
+				SlotDef.Kind.OUTPUT:
+					slot.built = true
+
+
 ## Called when a slot's build site is finished.
 func slot_built(sim: Simulation, slot: RoomSlot) -> void:
 	slot.built = true
 	slot.site = null
+	if slot.def.storage:
+		sim.add_stockpile_tile(slot.tile)
 	if slot.def.kind == SlotDef.Kind.STATION:
 		var station := Station.new()
 		station.slot = slot
@@ -138,8 +169,11 @@ func slot_built(sim: Simulation, slot: RoomSlot) -> void:
 	changed.emit()
 
 
-## Stations take orders, ask for inputs and offer craft jobs.
+## Stations take orders, ask for inputs and offer craft jobs. Slots that need
+## their tile dug out first wake up once it is.
 func tick(sim: Simulation) -> void:
+	if sim.tick_count % ACTIVATE_INTERVAL == 0:
+		_activate_slots(sim)
 	for station: Station in stations:
 		if station.recipe == null:
 			var recipe: RecipeDef = sim.orders.take(station.station_type)
@@ -250,7 +284,7 @@ func _lay_out(sim: Simulation, room: Room, reusable: Array[RoomSlot]) -> void:
 	var unit: int = 0
 	while base_x <= last_x:
 		for slot_def: SlotDef in def.slots:
-			var tile := Vector2i(base_x + slot_def.offset, room.feet_row)
+			var tile := Vector2i(base_x + slot_def.offset, room.feet_row - slot_def.rise)
 			var kept: RoomSlot = _take_matching(reusable, slot_def, tile)
 			if kept != null:
 				kept.room = room
@@ -269,8 +303,7 @@ func _lay_out(sim: Simulation, room: Room, reusable: Array[RoomSlot]) -> void:
 					slot.site = sim.add_site(slot.tile, sim.item_type(slot_def.item), slot_def.item_count, slot_def.work_ticks, purpose, slot)
 				SlotDef.Kind.OUTPUT:
 					slot.pile = sim.storage.add_pile(Pile.Kind.OUTPUT, slot.tile, sim.config.pile_capacity)
-				SlotDef.Kind.PLANT:
-					slot.plant = sim.plants.add(slot_def.plant, slot.tile, 0, sim.roll_growth_speed(slot_def.plant))
+				# Plants and stockpile spots wait for their tile to be dug out; see _activate_slots.
 		base_x += pattern_width
 		unit += 1
 
@@ -323,6 +356,8 @@ func _clear_slot(sim: Simulation, slot: RoomSlot) -> void:
 	elif slot.built and slot.def.item != null:
 		# The furniture, or the materials the station was made of, drop to the floor.
 		sim.spill(sim.item_type(slot.def.item), slot.def.item_count, slot.tile)
+	if slot.built and (slot.def.storage or slot.def.kind == SlotDef.Kind.STOCKPILE):
+		sim.remove_stockpile_tile(slot.tile)
 	if slot.station != null:
 		var station: Station = slot.station
 		station.removed = true

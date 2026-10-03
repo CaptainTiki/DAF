@@ -8,5 +8,5 @@ script = ExtResource("1_def")
 id = &"dirt"
 display_name = "Dirt"
 color = Color(0.46, 0.33, 0.21, 1)
-dig_ticks = 30
+dig_ticks = 90
 drop = ExtResource("2_drop")
